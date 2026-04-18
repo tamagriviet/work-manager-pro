@@ -33,63 +33,140 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ users, tasks, language,
     return userMap;
   }, [users]);
 
-  const renderNode = (parentId: string, level: number = 0) => {
-    const children = hierarchy[parentId] || [];
-    if (children.length === 0) return null;
+  const treeStyles = `
+  .org-tree {
+    display: flex;
+    justify-content: center;
+  }
+  .org-tree ul {
+    padding-top: 20px;
+    position: relative;
+    display: flex;
+    justify-content: center;
+    transition: all 0.5s;
+  }
+  .org-tree li {
+    float: left;
+    text-align: center;
+    list-style-type: none;
+    position: relative;
+    padding: 20px 10px 0 10px;
+    transition: all 0.5s;
+  }
+  .org-tree li::before, .org-tree li::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 50%;
+    border-top: 2px solid #cbd5e1;
+    width: 50%;
+    height: 20px;
+  }
+  .dark .org-tree li::before, .dark .org-tree li::after {
+    border-top-color: #334155;
+  }
+  .org-tree li::after {
+    right: auto;
+    left: 50%;
+    border-left: 2px solid #cbd5e1;
+  }
+  .dark .org-tree li::after {
+    border-left-color: #334155;
+  }
+  .org-tree li:only-child::after, .org-tree li:only-child::before {
+    display: none;
+  }
+  .org-tree li:only-child {
+    padding-top: 0;
+  }
+  .org-tree li:first-child::before, .org-tree li:last-child::after {
+    border: 0 none;
+  }
+  .org-tree li:last-child::before {
+    border-right: 2px solid #cbd5e1;
+    border-radius: 0 5px 0 0;
+  }
+  .dark .org-tree li:last-child::before {
+    border-right-color: #334155;
+  }
+  .org-tree li:first-child::after {
+    border-radius: 5px 0 0 0;
+  }
+  .org-tree ul::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 50%;
+    border-left: 2px solid #cbd5e1;
+    width: 0;
+    height: 20px;
+    transform: translateX(-50%);
+  }
+  .dark .org-tree ul::before {
+    border-left-color: #334155;
+  }
+  /* Remove top connector from the very first root UL */
+  .org-tree > ul::before {
+    display: none;
+  }
+  .org-tree > ul {
+    padding-top: 0;
+  }
+  `;
+
+  const renderNode = (user: User) => {
+    const children = hierarchy[user.id] || [];
+    
+    // Cấu hình màu sắc đồng nhất theo cấp bậc (Role-based Coloring)
+    const roleStyles: Record<string, string> = {
+      ADMIN: 'bg-rose-600 border-rose-200 text-rose-600 shadow-rose-500/10',
+      DEPT_HEAD: 'bg-amber-500 border-amber-200 text-amber-600 shadow-amber-500/10',
+      MANAGER: 'bg-indigo-600 border-indigo-200 text-indigo-600 shadow-indigo-500/10',
+      EMPLOYEE: 'bg-slate-500 border-slate-200 text-slate-500 shadow-slate-500/10'
+    };
+    
+    const currentStyle = roleStyles[user.role] || roleStyles.EMPLOYEE;
+    const userTasksCount = tasks.filter(tk => tk.userId === user.id && !tk.deletedAt).length;
 
     return (
-      <div className={`flex flex-col gap-8 ${level > 0 ? 'ml-12 md:ml-20 border-l-4 border-slate-100 dark:border-slate-800 pl-12 md:pl-20' : ''}`}>
-        {children.map(user => {
-          // Cấu hình màu sắc đồng nhất theo cấp bậc (Role-based Coloring)
-          const roleStyles = {
-            ADMIN: 'bg-rose-600 border-rose-200 text-rose-600 shadow-rose-500/10',
-            DEPT_HEAD: 'bg-amber-500 border-amber-200 text-amber-600 shadow-amber-500/10',
-            MANAGER: 'bg-indigo-600 border-indigo-200 text-indigo-600 shadow-indigo-500/10',
-            EMPLOYEE: 'bg-slate-500 border-slate-200 text-slate-500 shadow-slate-500/10'
-          };
-          
-          const currentStyle = roleStyles[user.role];
-          const userTasksCount = tasks.filter(tk => tk.userId === user.id && !tk.deletedAt).length;
-
-          return (
-            <div key={user.id} className="relative animate-in slide-in-from-left-8 duration-500">
-              <div className="flex items-center gap-6 group">
-                {/* Node Card với màu sắc cấp bậc */}
-                <div className={`bg-white dark:bg-slate-900 border-2 border-l-[10px] p-5 rounded-[2rem] shadow-xl flex items-center gap-5 min-w-[320px] hover:-translate-y-1 transition-all ${currentStyle.split(' ')[1]} ${currentStyle.replace('bg-', 'border-l-')}`}>
-                  <div className={`w-16 h-16 rounded-[1.5rem] flex items-center justify-center font-black text-white text-xl shadow-lg ${currentStyle.split(' ')[0]}`}>
-                    {user.fullName.charAt(0)}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h4 className="font-black text-slate-800 dark:text-white text-sm uppercase truncate tracking-tight">{user.fullName}</h4>
-                    <p className={`text-[10px] font-black uppercase tracking-widest mt-0.5 ${currentStyle.split(' ')[2]}`}>
-                      {user.jobTitle}
-                    </p>
-                    <span className="text-[8px] font-black px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-900 text-slate-400 mt-2 inline-block">
-                      {t[`role_${user.role}` as keyof typeof t]}
-                    </span>
-                  </div>
-                  <div className="flex flex-col gap-2">
-                     <button onClick={() => onSelectUser(user)} className="w-10 h-10 bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-blue-500 rounded-xl flex items-center justify-center transition-all border border-slate-100 dark:border-slate-800">
-                        <i className="fas fa-eye text-xs"></i>
-                     </button>
-                     <button onClick={() => onEditUser(user)} className="w-10 h-10 bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-amber-500 rounded-xl flex items-center justify-center transition-all border border-slate-100 dark:border-slate-800">
-                        <i className="fas fa-pen text-xs"></i>
-                     </button>
-                  </div>
-                </div>
-                
-                {/* Badge thông tin công việc */}
-                <div className={`px-5 py-2 bg-white dark:bg-slate-900 border-2 rounded-full text-[10px] font-black shadow-sm ${currentStyle.split(' ')[1]} ${currentStyle.split(' ')[2]}`}>
-                  {userTasksCount} CÔNG VIỆC
-                </div>
-              </div>
-
-              {/* Render con đệ quy */}
-              {renderNode(user.id, level + 1)}
+      <li key={user.id} className="animate-in fade-in zoom-in-95 duration-500">
+        <div className="inline-block relative">
+          <div className={`bg-white dark:bg-slate-900 border-2 border-t-[8px] p-5 rounded-3xl shadow-xl flex flex-col items-center gap-2 w-[240px] relative z-10 mx-auto hover:-translate-y-2 hover:shadow-2xl transition-all ${currentStyle.split(' ')[1]} ${currentStyle.replace('bg-', 'border-t-')}`}>
+            <div className={`w-14 h-14 rounded-[1.2rem] flex items-center justify-center font-black text-white text-xl shadow-lg ${currentStyle.split(' ')[0]}`}>
+              {user.fullName.charAt(0)}
             </div>
-          );
-        })}
-      </div>
+            <div className="text-center w-full min-w-0 mt-1">
+              <h4 className="font-black text-slate-800 dark:text-white text-sm uppercase truncate tracking-tight">{user.fullName}</h4>
+              <p className={`text-[10px] font-black uppercase tracking-widest mt-0.5 truncate ${currentStyle.split(' ')[2]}`}>
+                {user.jobTitle}
+              </p>
+              <span className="text-[8px] font-black px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-400 mt-2 inline-block">
+                {t[`role_${user.role}` as keyof typeof t]}
+              </span>
+            </div>
+            
+            <div className="flex items-center gap-3 mt-3 w-full justify-center border-t border-slate-50 dark:border-slate-800/50 pt-3">
+              <button onClick={() => onSelectUser(user)} className="w-9 h-9 bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-blue-500 rounded-xl flex items-center justify-center transition-all border border-slate-100 dark:border-slate-700">
+                 <i className="fas fa-eye text-xs"></i>
+              </button>
+              <button onClick={() => onEditUser(user)} className="w-9 h-9 bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-amber-500 rounded-xl flex items-center justify-center transition-all border border-slate-100 dark:border-slate-700">
+                 <i className="fas fa-pen text-xs"></i>
+              </button>
+            </div>
+            
+            <div className={`absolute -top-3 -right-3 px-3 py-1 bg-white dark:bg-slate-900 border-2 rounded-full text-[10px] font-black shadow-sm ${currentStyle.split(' ')[1]} ${currentStyle.split(' ')[2]}`}>
+              {userTasksCount} TASK
+            </div>
+          </div>
+        </div>
+
+        {/* Render con đệ quy */}
+        {children.length > 0 && (
+          <ul>
+            {children.map(child => renderNode(child))}
+          </ul>
+        )}
+      </li>
     );
   };
 
@@ -143,12 +220,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ users, tasks, language,
           </div>
         </header>
 
-        <div className="relative pt-12">
-           {/* Bắt đầu vẽ từ những người báo cáo cho root-admin, nhưng không vẽ nút root-admin */}
-           {renderNode('root-admin', 0)}
-           
-           {/* Fallback cho những user không có reportsTo nhưng không phải là con của admin (nếu có lỗi logic mapping) */}
-           {hierarchy['root'] && renderNode('root', 0)}
+        <div className="relative pt-12 overflow-x-auto custom-scrollbar pb-20 w-full flex justify-center">
+           <style>{treeStyles}</style>
+           <div className="org-tree min-w-max">
+             <ul>
+               {hierarchy['root-admin'] && hierarchy['root-admin'].map(user => renderNode(user))}
+             </ul>
+           </div>
         </div>
 
         {users.length <= 1 && (
