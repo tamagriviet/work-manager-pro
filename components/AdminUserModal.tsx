@@ -280,6 +280,19 @@ const AdminUserModal: React.FC<AdminUserModalProps> = ({ currentUser, users, tas
               <button onClick={handleSave} className="w-full bg-blue-600 text-white font-black py-4 rounded-2xl shadow-xl uppercase text-[10px] tracking-widest active:scale-95">
                 {editingUser?.id ? 'LƯU THÔNG TIN' : 'KHỞI TẠO TÀI KHOẢN'}
               </button>
+              {editingUser?.id && editingUser.id !== currentUser.id && editingUser.email !== 'tam.agriviet@gmail.com' && (
+                <button 
+                  onClick={() => {
+                    if (window.confirm("CẢNH BÁO: Bạn có chắc chắn muốn xóa nhân sự này khỏi hệ thống? Họ sẽ không thể đăng nhập được nữa.")) {
+                      onDeleteUser(editingUser.id!);
+                      setEditingUser(null);
+                    }
+                  }} 
+                  className="w-full bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-500 font-black py-4 rounded-2xl shadow-sm uppercase text-[10px] tracking-widest active:scale-95 border border-rose-100 dark:border-rose-900/50"
+                >
+                  <i className="fas fa-trash-alt mr-2"></i> XÓA TÀI KHOẢN
+                </button>
+              )}
               {editingUser && (
                 <button onClick={() => setEditingUser(null)} className="w-full text-[10px] font-black text-slate-400 uppercase tracking-widest py-2">Hủy</button>
               )}
