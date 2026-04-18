@@ -19,7 +19,10 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
     const savedPassword = localStorage.getItem('saved_password');
     const autoLogin = localStorage.getItem('auto_login');
     
-    if (savedEmail) setEmail(savedEmail);
+    if (savedEmail) {
+      setEmail(savedEmail);
+      setRememberMe(true); // Tự động tích lại nếu đã từng ghi nhớ
+    }
     if (savedPassword) setPassword(savedPassword);
     
     if (autoLogin === 'true' && savedEmail && savedPassword) {
