@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { authenticateUser } from '../services/storageService';
 import packageJson from '../package.json';
 import { getServerUrl, setServerUrl } from '../services/configService';
@@ -10,8 +10,23 @@ interface LoginProps {
 const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  
+  useEffect(() => {
+    const savedEmail = localStorage.getItem('saved_email');
+    const savedPassword = localStorage.getItem('saved_password');
+    const autoLogin = localStorage.getItem('auto_login');
+    
+    if (savedEmail) setEmail(savedEmail);
+    if (savedPassword) setPassword(savedPassword);
+    
+    if (autoLogin === 'true' && savedEmail && savedPassword) {
+      setRememberMe(true);
+      performLogin(savedEmail, savedPassword, true);
+    }
+  }, []);
   
   const [showSettings, setShowSettings] = useState(false);
   const [tempUrl, setTempUrl] = useState(getServerUrl());
@@ -23,23 +38,38 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
     window.location.reload(); // Tải lại trang để áp dụng URL mới
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const performLogin = async (loginEmail: string, loginPass: string, shouldRemember: boolean) => {
     setError('');
     setLoading(true);
 
     try {
-      const result = await authenticateUser({ email, password });
+      const result = await authenticateUser({ email: loginEmail, password: loginPass });
       if (result.success) {
-        onLogin(email, password);
+        if (shouldRemember) {
+          localStorage.setItem('saved_email', loginEmail);
+          localStorage.setItem('saved_password', loginPass);
+          localStorage.setItem('auto_login', 'true');
+        } else {
+          localStorage.removeItem('saved_email');
+          localStorage.removeItem('saved_password');
+          localStorage.removeItem('auto_login');
+        }
+        onLogin(loginEmail, loginPass);
       } else {
         setError(result.message);
+        localStorage.removeItem('auto_login');
       }
     } catch (err: any) {
       setError(err.message);
+      localStorage.removeItem('auto_login');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    performLogin(email, password, rememberMe);
   };
 
   return (
@@ -114,6 +144,19 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
               placeholder="••••••••"
               className="w-full px-6 py-5 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 outline-none transition-all font-bold text-slate-700"
             />
+          </div>
+
+          <div className="flex items-center gap-2 px-1">
+            <input 
+              type="checkbox" 
+              id="rememberMe" 
+              checked={rememberMe} 
+              onChange={(e) => setRememberMe(e.target.checked)} 
+              className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500 cursor-pointer"
+            />
+            <label htmlFor="rememberMe" className="text-[10px] font-black text-slate-400 uppercase tracking-widest cursor-pointer select-none">
+              Ghi nhớ đăng nhập
+            </label>
           </div>
 
           <button

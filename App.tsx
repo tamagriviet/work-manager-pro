@@ -73,6 +73,7 @@ const App: React.FC = () => {
   };
 
   const handleLogout = () => {
+    localStorage.removeItem('auto_login');
     setState(null);
     setCurrentView('PERSONAL');
     setSelectedTeamMember(null);
