@@ -1,0 +1,22 @@
+{
+  "users": [
+    {
+      "id": "root-admin",
+      "email": "tam.agriviet@gmail.com",
+      "password": "123456789",
+      "fullName": "Tam Agriviet",
+      "jobTitle": "Hệ thống Quản trị",
+      "role": "ADMIN",
+      "mustChangePassword": false,
+      "companies": [
+        "Agriviet"
+      ]
+    }
+  ],
+  "tasks": [],
+  "templates": [],
+  "settings": {
+    "language": "vi",
+    "theme": "light"
+  }
+}
