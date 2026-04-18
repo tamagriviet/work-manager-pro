@@ -19,16 +19,44 @@ interface AdminDashboardProps {
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ users, tasks, language, onSelectUser, onEditUser, notifications, setNotifications, showNotifications, setShowNotifications, unreadCount }) => {
   const t = translations[language] || translations.vi;
 
-  // Xây dựng cây phân cấp - Loại bỏ root-admin khỏi danh sách hiển thị trong cây
+  // Xây dựng cây phân cấp tự động thông minh
   const hierarchy = useMemo(() => {
     const userMap: Record<string, User[]> = {};
+    
+    // Tìm các cấp quản lý đầu tiên để làm mỏ neo tự động
+    const firstAdmin = users.find(u => u.role === 'ADMIN');
+    const firstDeptHead = users.find(u => u.role === 'DEPT_HEAD');
+    const firstManager = users.find(u => u.role === 'MANAGER');
+
     users.forEach(u => {
       // Không đưa chính tài khoản Root Admin vào danh sách con để hiển thị
       if (u.email === 'tam.agriviet@gmail.com' || u.id === 'root-admin') return;
 
-      const parentId = u.reportsTo || 'root-admin';
-      if (!userMap[parentId]) userMap[parentId] = [];
-      userMap[parentId].push(u);
+      let parentId = u.reportsTo;
+      
+      // LOGIC TỰ ĐỘNG SẮP XẾP CÂY: Nếu không có reportsTo, tự động móc vào quản lý cấp cao nhất hiện có
+      if (!parentId) {
+         if (u.role === 'ADMIN') {
+            parentId = 'root-admin';
+         } else if (u.role === 'DEPT_HEAD') {
+            parentId = (firstAdmin && firstAdmin.id !== u.id) ? firstAdmin.id : 'root-admin';
+         } else if (u.role === 'MANAGER') {
+            parentId = (firstDeptHead && firstDeptHead.id !== u.id) ? firstDeptHead.id : 
+                       (firstAdmin && firstAdmin.id !== u.id) ? firstAdmin.id : 'root-admin';
+         } else if (u.role === 'EMPLOYEE') {
+            parentId = (firstManager && firstManager.id !== u.id) ? firstManager.id : 
+                       (firstDeptHead && firstDeptHead.id !== u.id) ? firstDeptHead.id : 
+                       (firstAdmin && firstAdmin.id !== u.id) ? firstAdmin.id : 'root-admin';
+         }
+      }
+
+      // Bảo vệ: Tránh tự báo cáo cho chính mình
+      if (parentId === u.id) {
+          parentId = 'root-admin';
+      }
+
+      if (!userMap[parentId!]) userMap[parentId!] = [];
+      userMap[parentId!].push(u);
     });
     return userMap;
   }, [users]);
