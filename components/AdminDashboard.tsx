@@ -1,5 +1,4 @@
-
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { User, Language, Task } from '../types';
 import { translations } from '../translations';
 
@@ -18,6 +17,7 @@ interface AdminDashboardProps {
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ users, tasks, language, onSelectUser, onEditUser, notifications, setNotifications, showNotifications, setShowNotifications, unreadCount }) => {
   const t = translations[language] || translations.vi;
+  const [zoomLevel, setZoomLevel] = useState(1);
 
   // Xây dựng cây phân cấp tự động thông minh
   const hierarchy = useMemo(() => {
@@ -248,12 +248,34 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ users, tasks, language,
           </div>
         </header>
 
-        <div className="relative pt-12 overflow-x-auto custom-scrollbar pb-20 w-full flex justify-center">
-           <style>{treeStyles}</style>
-           <div className="org-tree min-w-max">
-             <ul>
-               {hierarchy['root-admin'] && hierarchy['root-admin'].map(user => renderNode(user))}
-             </ul>
+        <div className="relative mt-8 bg-slate-50 dark:bg-slate-900/30 rounded-[3rem] border-2 border-slate-100 dark:border-slate-800 overflow-hidden group">
+           {/* Thanh điều khiển Zoom */}
+           <div className="absolute top-6 right-6 z-50 flex items-center gap-2 bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm p-2 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+              <button onClick={() => setZoomLevel(p => Math.max(0.3, p - 0.1))} className="w-8 h-8 rounded-xl bg-slate-50 dark:bg-slate-900 text-slate-500 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-all flex items-center justify-center shadow-sm">
+                 <i className="fas fa-search-minus text-xs"></i>
+              </button>
+              <span className="text-[10px] font-black text-slate-600 dark:text-slate-300 w-12 text-center tracking-widest">
+                 {Math.round(zoomLevel * 100)}%
+              </span>
+              <button onClick={() => setZoomLevel(p => Math.min(2, p + 0.1))} className="w-8 h-8 rounded-xl bg-slate-50 dark:bg-slate-900 text-slate-500 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-all flex items-center justify-center shadow-sm">
+                 <i className="fas fa-search-plus text-xs"></i>
+              </button>
+              <div className="w-px h-4 bg-slate-200 dark:bg-slate-700 mx-1"></div>
+              <button onClick={() => setZoomLevel(1)} className="px-4 h-8 rounded-xl bg-slate-50 dark:bg-slate-900 text-slate-500 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/30 transition-all flex items-center justify-center text-[9px] font-black uppercase tracking-widest shadow-sm">
+                 Reset
+              </button>
+           </div>
+           
+           {/* Cửa sổ hiển thị có Scrollbar */}
+           <div className="overflow-auto custom-scrollbar w-full h-[65vh] min-h-[500px]">
+             <div className="min-w-max p-12 flex justify-center transition-transform duration-300 origin-top" style={{ transform: `scale(${zoomLevel})` }}>
+               <style>{treeStyles}</style>
+               <div className="org-tree">
+                 <ul>
+                   {hierarchy['root-admin'] && hierarchy['root-admin'].map(user => renderNode(user))}
+                 </ul>
+               </div>
+             </div>
            </div>
         </div>
 
