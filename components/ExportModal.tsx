@@ -5,13 +5,14 @@ import { getCompanyColor } from '../constants';
 
 interface ExportModalProps {
   tasks: Task[];
+  subordinateTasks?: Task[];
   templates: ReportTemplate[];
   onSaveTemplate: (template: ReportTemplate) => void;
   onDeleteTemplate: (id: string) => void;
   onClose: () => void;
 }
 
-const ExportModal: React.FC<ExportModalProps> = ({ tasks, templates, onSaveTemplate, onDeleteTemplate, onClose }) => {
+const ExportModal: React.FC<ExportModalProps> = ({ tasks, subordinateTasks, templates, onSaveTemplate, onDeleteTemplate, onClose }) => {
   const today = new Date();
   const todayStr = today.toISOString().split('T')[0];
   const reportRef = useRef<HTMLDivElement>(null);
@@ -19,20 +20,24 @@ const ExportModal: React.FC<ExportModalProps> = ({ tasks, templates, onSaveTempl
   const [startDate, setStartDate] = useState(todayStr);
   const [endDate, setEndDate] = useState(todayStr);
   const [layout, setLayout] = useState<ReportLayout>('FLAT');
+  const [mergeSubordinateTasks, setMergeSubordinateTasks] = useState(false);
 
   const filteredTasks = useMemo(() => {
-    return tasks.filter(t => {
+    const baseTasks = mergeSubordinateTasks ? [...tasks, ...(subordinateTasks || [])] : tasks;
+    return baseTasks.filter(t => {
       const taskDate = t.createdAt.split('T')[0];
       return taskDate >= startDate && taskDate <= endDate;
     });
-  }, [tasks, startDate, endDate]);
+  }, [tasks, subordinateTasks, startDate, endDate, mergeSubordinateTasks]);
 
   const groupedTasks = useMemo<Record<string, Task[]> | null>(() => {
     if (layout !== 'GROUPED_BY_COMPANY') return null;
     const groups: Record<string, Task[]> = {};
     filteredTasks.forEach(task => {
-      if (!groups[task.company]) groups[task.company] = [];
-      groups[task.company].push(task);
+      const existingKey = Object.keys(groups).find(k => k.toLowerCase() === task.company.toLowerCase());
+      const key = existingKey || task.company;
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(task);
     });
     return groups;
   }, [filteredTasks, layout]);
@@ -94,7 +99,10 @@ const ExportModal: React.FC<ExportModalProps> = ({ tasks, templates, onSaveTempl
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-0 md:p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
       <div className="w-full h-full md:h-auto md:max-w-6xl bg-white md:rounded-[3rem] shadow-2xl flex flex-col max-h-[100vh] md:max-h-[95vh] overflow-hidden">
-        <header className="p-6 md:p-8 border-b border-slate-100 flex items-center justify-between shrink-0">
+        <header 
+          className="px-6 pb-6 md:p-8 border-b border-slate-100 flex items-center justify-between shrink-0"
+          style={{ paddingTop: 'calc(env(safe-area-inset-top) + 24px)' }}
+        >
           <div>
             <h2 className="text-xl md:text-2xl font-black text-slate-800 uppercase tracking-tight">Xuất báo cáo tuần</h2>
             <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Dữ liệu cá nhân</p>
@@ -123,6 +131,21 @@ const ExportModal: React.FC<ExportModalProps> = ({ tasks, templates, onSaveTempl
                <button onClick={() => setLayout('GROUPED_BY_COMPANY')} className={`flex-1 p-4 rounded-2xl border-2 transition-all ${layout === 'GROUPED_BY_COMPANY' ? 'border-blue-600 bg-blue-50 text-blue-600' : 'border-slate-100 bg-white text-slate-400'} font-black uppercase text-[10px]`}>Gộp theo công ty</button>
             </div>
           </div>
+
+          {subordinateTasks && subordinateTasks.length > 0 && (
+            <div className="flex items-center gap-3 bg-blue-50/50 p-4 rounded-2xl border border-blue-100/50">
+              <input 
+                 type="checkbox" 
+                 id="merge-sub-tasks"
+                 checked={mergeSubordinateTasks}
+                 onChange={e => setMergeSubordinateTasks(e.target.checked)}
+                 className="w-5 h-5 rounded border-blue-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+              />
+              <label htmlFor="merge-sub-tasks" className="text-[11px] font-black text-slate-700 uppercase tracking-widest cursor-pointer select-none">
+                 Gộp báo cáo của nhân viên cấp dưới
+              </label>
+            </div>
+          )}
 
           <div className="border border-slate-100 rounded-[2rem] bg-white overflow-hidden shadow-inner">
              <div ref={reportRef} className="p-10 bg-white min-w-[700px]">

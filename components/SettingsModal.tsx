@@ -6,16 +6,18 @@ import { translations } from '../translations';
 interface SettingsModalProps {
   language: Language;
   theme: Theme;
+  appLogo?: string;
   currentUser: User;
-  onUpdate: (lang: Language, theme: Theme) => void;
+  onUpdate: (lang: Language, theme: Theme, logo?: string) => void;
   onUpdatePassword: (newPass: string) => void;
   onClose: () => void;
 }
 
-const SettingsModal: React.FC<SettingsModalProps> = ({ language, theme: initialTheme, currentUser, onUpdate, onUpdatePassword, onClose }) => {
-  const [activeTab, setActiveTab] = useState<'GENERAL' | 'SECURITY'>('GENERAL');
+const SettingsModal: React.FC<SettingsModalProps> = ({ language, theme: initialTheme, appLogo, currentUser, onUpdate, onUpdatePassword, onClose }) => {
+  const [activeTab, setActiveTab] = useState<'GENERAL' | 'SECURITY' | 'INTERFACE'>('GENERAL');
   const [tempLanguage, setTempLanguage] = useState<Language>(language);
   const [tempTheme, setTempTheme] = useState<Theme>(initialTheme);
+  const [tempAppLogo, setTempAppLogo] = useState<string | undefined>(appLogo);
   
   // Password state
   const [oldPassword, setOldPassword] = useState('');
@@ -36,8 +38,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ language, theme: initialT
   }, [tempTheme]);
 
   const handleSave = () => {
-    if (activeTab === 'GENERAL') {
-      onUpdate(tempLanguage, tempTheme);
+    if (activeTab === 'GENERAL' || activeTab === 'INTERFACE') {
+      onUpdate(tempLanguage, tempTheme, tempAppLogo);
       onClose();
     } else {
       // Logic đổi mật khẩu
@@ -93,7 +95,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ language, theme: initialT
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-300">
       <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-[2.5rem] shadow-2xl border border-slate-100 dark:border-slate-800 overflow-hidden transform animate-in zoom-in-95 duration-200">
-        <header className="p-8 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
+        <header 
+          className="px-8 pb-8 md:p-8 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900"
+          style={{ paddingTop: 'calc(env(safe-area-inset-top) + 32px)' }}
+        >
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-2xl font-black text-slate-800 dark:text-white uppercase tracking-tight">{t.settings}</h2>
             <button onClick={handleCancel} className="text-slate-300 hover:text-rose-500 transition-colors">
@@ -109,6 +114,12 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ language, theme: initialT
               {t.general}
             </button>
             <button 
+              onClick={() => setActiveTab('INTERFACE')}
+              className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'INTERFACE' ? 'bg-white dark:bg-slate-900 text-blue-600 shadow-sm' : 'text-slate-400'}`}
+            >
+              Giao Diện
+            </button>
+            <button 
               onClick={() => setActiveTab('SECURITY')}
               className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'SECURITY' ? 'bg-white dark:bg-slate-900 text-blue-600 shadow-sm' : 'text-slate-400'}`}
             >
@@ -117,7 +128,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ language, theme: initialT
           </div>
         </header>
 
-        <div className="p-8 space-y-8 bg-white dark:bg-slate-900 min-h-[380px]">
+        <div className="p-8 space-y-8 bg-white dark:bg-slate-900 min-h-[480px]">
           {activeTab === 'GENERAL' ? (
             <>
               <div className="space-y-4">
@@ -172,6 +183,62 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ language, theme: initialT
                 </div>
               </div>
             </>
+          ) : activeTab === 'INTERFACE' ? (
+            <div className="space-y-6">
+              <div className="space-y-3">
+                <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Logo Phần Mềm (In-App Logo)</label>
+                <div className="flex flex-col gap-4">
+                  <div className="flex items-center gap-4">
+                    <div className="w-16 h-16 rounded-2xl bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 flex items-center justify-center overflow-hidden shrink-0">
+                      {tempAppLogo ? (
+                        <img src={tempAppLogo} alt="Logo" className="w-full h-full object-contain" />
+                      ) : (
+                        <div className="w-full h-full bg-blue-600 text-white flex items-center justify-center text-2xl">
+                          <i className="fas fa-shield-halved"></i>
+                        </div>
+                      )}
+                    </div>
+                    <div>
+                      <label className="cursor-pointer bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 text-blue-600 dark:text-blue-400 px-4 py-2 rounded-xl text-xs font-bold transition-colors inline-block border border-blue-200 dark:border-blue-800">
+                        <i className="fas fa-upload mr-2"></i> Tải ảnh lên
+                        <input type="file" accept="image/*" className="hidden" onChange={e => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onload = (event) => {
+                              // Chuyển thành base64
+                              const base64 = event.target?.result as string;
+                              setTempAppLogo(base64);
+                            };
+                            reader.readAsDataURL(file);
+                          }
+                        }} />
+                      </label>
+                      {tempAppLogo && (
+                        <button onClick={() => setTempAppLogo(undefined)} className="ml-2 px-4 py-2 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-xl text-xs font-bold transition-colors">
+                          Xóa
+                        </button>
+                      )}
+                      <p className="text-[9px] text-slate-400 mt-2">Ảnh vuông 1:1 (khuyên dùng 256x256), định dạng PNG/JPG</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-6 border-t border-slate-100 dark:border-slate-800 space-y-3">
+                <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Icon Cài Đặt (Desktop/Mobile)</label>
+                <div className="bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800/30 rounded-2xl p-4">
+                  <p className="text-xs text-amber-700 dark:text-amber-500 mb-3 leading-relaxed">
+                    <strong>Lưu ý kỹ thuật:</strong> Biểu tượng ứng dụng ngoài màn hình máy tính và điện thoại <strong>không thể thay đổi trực tiếp từ giao diện này</strong> vì Apple/macOS yêu cầu phải đóng gói cố định trong lúc Build.
+                  </p>
+                  <div className="space-y-2 text-[10px] text-slate-600 dark:text-slate-400">
+                    <p><i className="fas fa-desktop text-blue-500 w-4"></i> <strong>Cho Máy Tính (Mac):</strong> Chuẩn bị 1 ảnh <code className="bg-white dark:bg-slate-800 px-1 rounded text-slate-800 dark:text-slate-300">512x512 px</code> lưu vào thư mục <code className="bg-white dark:bg-slate-800 px-1 rounded text-slate-800 dark:text-slate-300">build/icon.png</code></p>
+                    <p><i className="fas fa-mobile-alt text-blue-500 w-4"></i> <strong>Cho Điện Thoại (iOS):</strong> Chuẩn bị 1 ảnh <code className="bg-white dark:bg-slate-800 px-1 rounded text-slate-800 dark:text-slate-300">1024x1024 px</code> (không nền trong suốt) đưa vào thư mục <code className="bg-white dark:bg-slate-800 px-1 rounded text-slate-800 dark:text-slate-300">ios/App/App/Assets.xcassets/AppIcon.appiconset</code></p>
+                    <p className="pt-2 font-bold italic text-amber-600 dark:text-amber-500">*Vui lòng liên hệ Kỹ thuật viên để build lại ứng dụng sau khi đổi ảnh cài đặt.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
           ) : (
             <div className="space-y-6">
               <div className="space-y-1.5">
@@ -232,7 +299,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ language, theme: initialT
              onClick={handleSave} 
              className="flex-1 py-4 bg-slate-900 dark:bg-blue-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl hover:opacity-90 transition-all active:scale-95"
            >
-             {activeTab === 'GENERAL' ? t.save : "THAY ĐỔI"}
+             {activeTab === 'GENERAL' || activeTab === 'INTERFACE' ? t.save : "THAY ĐỔI"}
            </button>
         </footer>
       </div>

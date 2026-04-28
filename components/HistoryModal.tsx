@@ -16,7 +16,10 @@ const HistoryModal: React.FC<HistoryModalProps> = ({ tasks, onClose }) => {
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-0 md:p-6 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
       <div className="w-full h-full md:h-auto md:max-w-4xl bg-white md:rounded-[3rem] shadow-2xl flex flex-col max-h-[100vh] md:max-h-[90vh] overflow-hidden">
-        <header className="p-4 md:p-8 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between bg-white z-10 gap-4 shrink-0">
+        <header 
+          className="px-4 pb-4 md:p-8 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between bg-white z-10 gap-4 shrink-0"
+          style={{ paddingTop: 'calc(env(safe-area-inset-top) + 16px)' }}
+        >
           <div className="flex items-center justify-between sm:block">
             <h2 className="text-xl md:text-2xl font-black text-slate-800 tracking-tight uppercase">Lịch sử</h2>
             <button onClick={onClose} className="sm:hidden w-10 h-10 flex items-center justify-center rounded-xl hover:bg-slate-100 text-slate-400 transition-colors">

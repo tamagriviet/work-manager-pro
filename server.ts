@@ -50,6 +50,11 @@ async function startServer() {
 
   // --- API Routes ---
 
+  app.get('/api/settings', (req, res) => {
+    const db = getDb();
+    res.json(db.settings || { language: 'vi', theme: 'light' });
+  });
+
   app.post('/api/login', (req, res) => {
     const { email, password } = req.body;
     const db = getDb();
@@ -84,6 +89,7 @@ async function startServer() {
       const updatedDb = {
         users: newState.users,
         tasks: newState.tasks,
+        departments: newState.departments || [],
         templates: newState.templates || [],
         settings: newState.settings
       };

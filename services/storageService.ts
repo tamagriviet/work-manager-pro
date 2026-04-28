@@ -46,6 +46,14 @@ export const loadStateSecure = async (email: string, password?: string): Promise
   }
 
   const { state } = await response.json();
+  
+  if (state) {
+    if (!state.users) state.users = [];
+    if (!state.tasks) state.tasks = [];
+    if (!state.departments) state.departments = [];
+    if (!state.templates) state.templates = [];
+  }
+  
   return state;
 };
 

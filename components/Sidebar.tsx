@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Language, User } from '../types';
+import { Language, User, Department } from '../types';
 import { translations } from '../translations';
 import { getCompanyColor } from '../constants';
 import packageJson from '../package.json';
@@ -9,7 +9,9 @@ interface SidebarProps {
   currentUser: User;
   managerName?: string;
   companies: string[];
+  departments?: Department[];
   language: Language;
+  appLogo?: string;
   onAddTask: (content: string, company: string, isPriority: boolean) => void;
   onAddCompany: (company: string) => void;
   onOpenManageCompanies: () => void;
@@ -19,14 +21,16 @@ interface SidebarProps {
   onOpenExport: () => void;
   onOpenSettings: () => void;
   onOpenManageUsers: () => void;
+  onAddDepartment?: (name: string) => void;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ 
-  currentUser, managerName, companies, language, onAddTask, onAddCompany, onOpenManageCompanies, onClearAll, onLogout, onOpenHistory, onOpenExport, onOpenSettings, onOpenManageUsers
+  currentUser, managerName, companies, departments = [], language, appLogo, onAddTask, onAddCompany, onOpenManageCompanies, onClearAll, onLogout, onOpenHistory, onOpenExport, onOpenSettings, onOpenManageUsers, onAddDepartment
 }) => {
   const [content, setContent] = useState('');
   const [selectedCompany, setSelectedCompany] = useState(companies[0] || '');
   const [isPriority, setIsPriority] = useState(false);
+  const [newDeptName, setNewDeptName] = useState('');
   
   const t = translations[language] || translations.vi;
   const isRootAdmin = currentUser.email === 'tam.agriviet@gmail.com';
@@ -40,17 +44,26 @@ const Sidebar: React.FC<SidebarProps> = ({
   };
 
   return (
-    <div className="w-[320px] md:w-[380px] bg-white dark:bg-slate-950 h-full flex flex-col p-8 md:p-10 flex-shrink-0 border-r border-slate-100 dark:border-slate-800 shadow-2xl md:shadow-none overflow-y-auto custom-scrollbar transition-colors">
-      <div className="mb-10 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 bg-blue-600 rounded-[1.2rem] flex items-center justify-center text-white shadow-xl shadow-blue-500/20"><i className="fas fa-shield-halved text-xl"></i></div>
-          <div>
-            <h1 className="text-xl font-black text-slate-800 dark:text-white tracking-tighter leading-tight uppercase">{t.appName}</h1>
-            <p className="text-[10px] font-black text-blue-500 uppercase tracking-widest">{isRootAdmin ? t.systemAdmin : 'Enterprise Edition'}</p>
+      <div className={`w-full md:w-[380px] bg-white dark:bg-slate-950 flex-1 md:h-full flex flex-col p-6 md:p-10 flex-shrink-0 border-b md:border-b-0 md:border-r border-slate-100 dark:border-slate-800 shadow-sm md:shadow-none overflow-y-auto custom-scrollbar transition-colors ${isRootAdmin ? 'hidden md:flex' : ''}`}>
+
+        <div className="mb-10 flex items-center justify-between">
+          <div className="flex items-center gap-3 md:gap-4">
+            {appLogo ? (
+              <div className="w-10 h-10 md:w-12 md:h-12 flex items-center justify-center bg-white rounded-xl md:rounded-[1.2rem] shadow-xl overflow-hidden p-0.5 border border-slate-100">
+                <img src={appLogo} alt="App Logo" className="w-full h-full object-contain rounded-lg md:rounded-xl" />
+              </div>
+            ) : (
+              <div className="w-10 h-10 md:w-12 md:h-12 bg-blue-600 rounded-xl md:rounded-[1.2rem] flex items-center justify-center text-white shadow-xl shadow-blue-500/20">
+                <i className="fas fa-shield-halved text-lg md:text-xl"></i>
+              </div>
+            )}
+            <div>
+              <h1 className="text-lg md:text-xl font-black text-slate-800 dark:text-white tracking-tighter leading-tight uppercase pr-8 md:pr-0">{t.appName}</h1>
+              <p className="text-[9px] md:text-[10px] font-black text-blue-500 uppercase tracking-widest">{isRootAdmin ? t.systemAdmin : 'Enterprise Edition'}</p>
+            </div>
           </div>
+          <button onClick={onLogout} className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-900 text-slate-400 hover:text-rose-500 transition-all border border-slate-100 dark:border-slate-800 hidden md:flex items-center justify-center"><i className="fas fa-power-off"></i></button>
         </div>
-        <button onClick={onLogout} className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-900 text-slate-400 hover:text-rose-500 transition-all border border-slate-100 dark:border-slate-800"><i className="fas fa-power-off"></i></button>
-      </div>
 
       <div className="mb-8 p-5 bg-slate-50 dark:bg-slate-900/50 rounded-3xl border border-slate-100 dark:border-slate-800 space-y-3">
         <div>
@@ -127,16 +140,40 @@ const Sidebar: React.FC<SidebarProps> = ({
           </div>
         </>
       ) : (
-        <div className="flex-1 space-y-4">
+        <div className="flex-1 space-y-6">
            <div className="p-6 bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-800 rounded-[2rem]">
               <h3 className="text-xs font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest mb-2">{t.systemAdmin}</h3>
               <p className="text-[10px] text-slate-500 dark:text-slate-400 font-bold leading-relaxed">{t.orgDesc}</p>
            </div>
            
-           <button onClick={onOpenManageUsers} className="w-full p-5 bg-slate-900 dark:bg-blue-600 text-white rounded-[1.8rem] flex items-center gap-4 hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-blue-500/10">
-              <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center text-lg"><i className="fas fa-user-plus"></i></div>
-              <span className="text-xs font-black uppercase tracking-widest">{t.addUser}</span>
-           </button>
+           <div className="space-y-4">
+             
+             {/* Form thêm phòng ban mới */}
+             <div className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 flex flex-col gap-4 shadow-sm">
+               <h3 className="text-[11px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest">Thêm sơ đồ mới</h3>
+               <div className="flex flex-col gap-3">
+                 <input 
+                   type="text" 
+                   value={newDeptName}
+                   onChange={e => setNewDeptName(e.target.value)}
+                   placeholder="Nhập tên phòng ban..."
+                   className="w-full p-4 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-sm font-bold text-slate-800 dark:text-white focus:ring-2 focus:ring-blue-500/20 shadow-sm transition-all"
+                 />
+                 <button 
+                   onClick={() => {
+                     if (newDeptName.trim() && onAddDepartment) {
+                       onAddDepartment(newDeptName.trim());
+                       setNewDeptName('');
+                     }
+                   }}
+                   disabled={!newDeptName.trim()}
+                   className="w-full py-4 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:hover:bg-blue-600 text-white rounded-xl font-black text-[11px] uppercase tracking-widest shadow-lg shadow-blue-500/20 transition-all active:scale-95"
+                 >
+                   <i className="fas fa-plus mr-2"></i> Tạo sơ đồ
+                 </button>
+               </div>
+             </div>
+           </div>
         </div>
       )}
       
@@ -145,7 +182,14 @@ const Sidebar: React.FC<SidebarProps> = ({
           <i className="fas fa-sliders-h text-sm"></i>
           <span className="text-[10px] font-black uppercase tracking-widest">{t.settings}</span>
         </button>
-        <p className="text-[9px] text-slate-300 font-bold uppercase tracking-widest">v{packageJson.version}</p>
+        
+        {/* Nút logout trên mobile */}
+        <button onClick={onLogout} className="md:hidden flex items-center gap-2 text-rose-400 hover:text-rose-600 transition-colors">
+          <i className="fas fa-power-off text-sm"></i>
+          <span className="text-[10px] font-black uppercase tracking-widest">Đăng xuất</span>
+        </button>
+
+        <p className="text-[9px] text-slate-300 font-bold uppercase tracking-widest hidden md:block">v{packageJson.version}</p>
       </div>
     </div>
   );

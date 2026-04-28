@@ -64,13 +64,13 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, language, onStatusChange, onD
 
       {!readOnly && (
         <div className="flex items-center justify-between w-full mt-2 md:mt-0">
-          <div className={`flex p-1.5 rounded-2xl border bg-white/80 dark:bg-slate-950/80 backdrop-blur-sm ${task.isPriority ? 'border-rose-100 dark:border-rose-900' : cpColor.border + ' dark:border-slate-800'}`}>
+          <div className={`flex flex-wrap sm:flex-nowrap p-1 sm:p-1.5 rounded-[1.2rem] sm:rounded-2xl border bg-white/80 dark:bg-slate-950/80 backdrop-blur-sm ${task.isPriority ? 'border-rose-100 dark:border-rose-900' : cpColor.border + ' dark:border-slate-800'}`}>
             {/* Hiển thị 3 trạng thái: Chưa làm, Đang làm, Đã xong */}
             {[TaskStatus.NOT_STARTED, TaskStatus.IN_PROGRESS, TaskStatus.DONE].map((status) => (
               <button
                 key={status}
                 onClick={() => onStatusChange?.(task.id, status)}
-                className={`px-4 py-2.5 rounded-xl text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-all ${
+                className={`px-2.5 sm:px-4 py-2 sm:py-2.5 rounded-xl text-[8px] sm:text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-all flex-1 text-center ${
                   task.status === status
                     ? STATUS_LABELS[status].color + " shadow-md scale-105"
                     : 'text-slate-400 hover:text-slate-600 dark:text-slate-500'

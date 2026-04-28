@@ -10,6 +10,12 @@ export type Language = 'vi' | 'en' | 'zh' | 'ru';
 export type Theme = 'light' | 'dark';
 export type ReportLayout = 'FLAT' | 'GROUPED_BY_COMPANY';
 
+export interface Department {
+  id: string;
+  name: string;
+  createdAt: string;
+}
+
 export interface User {
   id: string;
   email: string;
@@ -18,7 +24,8 @@ export interface User {
   jobTitle: string; 
   role: UserRole;
   reportsTo?: string; 
-  department?: string;
+  department?: string; // Tên phòng ban (legacy)
+  departmentId?: string; // ID của Sơ đồ/Phòng ban
   mustChangePassword?: boolean;
   companies: string[]; // Mỗi user có danh sách công ty riêng
 }
@@ -54,9 +61,11 @@ export interface AppState {
   users: User[]; 
   tasks: Task[]; 
   templates?: ReportTemplate[]; 
+  departments?: Department[]; // Danh sách các Sơ đồ phòng ban
   settings: {
     language: Language;
     theme: Theme;
+    appLogo?: string; // Logo tùy chỉnh dạng base64
   };
 }
 

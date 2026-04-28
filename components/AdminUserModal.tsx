@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { User, UserRole, Language, Task, TaskStatus } from '../types';
+import { User, UserRole, Language, Task, TaskStatus, Department } from '../types';
 import { translations } from '../translations';
 import { STATUS_LABELS, getCompanyColor } from '../constants';
 
@@ -8,14 +8,16 @@ interface AdminUserModalProps {
   currentUser: User;
   users: User[];
   tasks: Task[]; 
+  departments: Department[];
   language: Language;
   onAddUser: (user: User) => void;
   onUpdateUser: (user: User) => void;
   onDeleteUser: (id: string) => void;
   onClose: () => void;
+  currentDepartmentId?: string | null;
 }
 
-const AdminUserModal: React.FC<AdminUserModalProps> = ({ currentUser, users, tasks, language, onAddUser, onUpdateUser, onDeleteUser, onClose }) => {
+const AdminUserModal: React.FC<AdminUserModalProps> = ({ currentUser, users, tasks, departments, language, onAddUser, onUpdateUser, onDeleteUser, onClose, currentDepartmentId }) => {
   const t = translations[language] || translations.vi;
   const [editingUser, setEditingUser] = useState<Partial<User> | null>(null);
   const [selectedUserForTasks, setSelectedUserForTasks] = useState<User | null>(null);
@@ -26,11 +28,18 @@ const AdminUserModal: React.FC<AdminUserModalProps> = ({ currentUser, users, tas
 
   const roles: UserRole[] = ['ADMIN', 'DEPT_HEAD', 'MANAGER', 'EMPLOYEE'];
   
+  // Lọc danh sách user theo phòng ban đang được chọn để edit (hoặc phòng ban hiện tại)
+  const deptUsers = useMemo(() => {
+    const targetDeptId = editingUser?.departmentId !== undefined ? editingUser.departmentId : currentDepartmentId;
+    if (!targetDeptId) return users;
+    return users.filter(u => u.departmentId === targetDeptId || u.email === 'tam.agriviet@gmail.com');
+  }, [users, currentDepartmentId, editingUser?.departmentId]);
+
   const isSupervisorOf = (supervisorId: string, subordinateId: string): boolean => {
-    const subordinate = users.find(u => u.id === subordinateId);
+    const subordinate = deptUsers.find(u => u.id === subordinateId);
     if (!subordinate) return false;
     if (subordinate.reportsTo === supervisorId) return true;
-    const supervisor = users.find(u => u.id === supervisorId);
+    const supervisor = deptUsers.find(u => u.id === supervisorId);
     if (supervisor?.role === 'ADMIN') return true;
     if (supervisor?.role === 'DEPT_HEAD') return subordinate.role !== 'ADMIN';
     if (subordinate.reportsTo) return isSupervisorOf(supervisorId, subordinate.reportsTo);
@@ -38,38 +47,38 @@ const AdminUserModal: React.FC<AdminUserModalProps> = ({ currentUser, users, tas
   };
 
   const manageableUsers = useMemo(() => {
-    return users.filter(u => u.id === currentUser.id || isSupervisorOf(currentUser.id, u.id));
-  }, [users, currentUser]);
+    return deptUsers.filter(u => u.id === currentUser.id || isSupervisorOf(currentUser.id, u.id));
+  }, [deptUsers, currentUser]);
 
-  // "Là nhân viên của": Tất cả quản lý, trưởng phòng và admin
+  // "Là nhân viên của": Tất cả quản lý, trưởng phòng và admin trong cùng phòng ban
   const potentialSuperiors = useMemo(() => {
-    return users.filter(u => ['ADMIN', 'DEPT_HEAD', 'MANAGER'].includes(u.role) && u.id !== editingUser?.id);
-  }, [users, editingUser]);
+    return deptUsers.filter(u => ['ADMIN', 'DEPT_HEAD', 'MANAGER'].includes(u.role) && u.id !== editingUser?.id);
+  }, [deptUsers, editingUser]);
 
-  // "Quản lý trực tiếp": Danh sách nhân viên (hoặc cả quản lý nếu là Dept Head)
+  // "Quản lý trực tiếp": Danh sách nhân viên (hoặc cả quản lý nếu là Dept Head) trong cùng phòng ban
   const potentialSubordinates = useMemo(() => {
     if (!editingUser?.role) return [];
     if (editingUser.role === 'MANAGER') {
-      return users.filter(u => u.role === 'EMPLOYEE' && u.id !== editingUser.id);
+      return deptUsers.filter(u => u.role === 'EMPLOYEE' && u.id !== editingUser.id);
     }
     if (editingUser.role === 'DEPT_HEAD') {
-      return users.filter(u => (u.role === 'EMPLOYEE' || u.role === 'MANAGER') && u.id !== editingUser.id);
+      return deptUsers.filter(u => (u.role === 'EMPLOYEE' || u.role === 'MANAGER') && u.id !== editingUser.id);
     }
     if (editingUser.role === 'ADMIN') {
-      return users.filter(u => u.id !== editingUser.id);
+      return deptUsers.filter(u => u.id !== editingUser.id && u.email !== 'tam.agriviet@gmail.com');
     }
     return [];
-  }, [users, editingUser]);
+  }, [deptUsers, editingUser]);
 
   // Cập nhật danh sách subordinates tạm thời khi bắt đầu edit
   useEffect(() => {
     if (editingUser?.id) {
-      const subs = users.filter(u => u.reportsTo === editingUser.id).map(u => u.id);
+      const subs = deptUsers.filter(u => u.reportsTo === editingUser.id).map(u => u.id);
       setTempSubordinates(subs);
     } else {
       setTempSubordinates([]);
     }
-  }, [editingUser?.id, users]);
+  }, [editingUser?.id, deptUsers]);
 
   const handleSave = () => {
     if (!editingUser?.email || !editingUser?.fullName || !editingUser?.role || !editingUser?.jobTitle) {
@@ -86,9 +95,16 @@ const AdminUserModal: React.FC<AdminUserModalProps> = ({ currentUser, users, tas
         alert("Vui lòng thiết lập mật khẩu");
         return;
       }
+      
+      const generateId = () => {
+        if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+        return 'user_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 9);
+      };
+
       userResult = {
         ...editingUser,
-        id: crypto.randomUUID(),
+        id: generateId(),
+        departmentId: editingUser.departmentId !== undefined ? editingUser.departmentId : (currentDepartmentId || undefined),
         mustChangePassword: true
       } as User;
       onAddUser(userResult);
@@ -129,7 +145,10 @@ const AdminUserModal: React.FC<AdminUserModalProps> = ({ currentUser, users, tas
     <div className="fixed inset-0 z-[120] flex items-center justify-center p-0 md:p-4 bg-slate-900/80 backdrop-blur-xl animate-in fade-in duration-300">
       <div className="bg-white dark:bg-slate-900 w-full max-w-6xl md:rounded-[3rem] shadow-2xl border border-slate-100 dark:border-slate-800 flex flex-col h-full md:h-[90vh] overflow-hidden">
         
-        <header className="p-6 md:p-8 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-white dark:bg-slate-900">
+        <header 
+          className="px-6 pb-6 md:p-8 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-white dark:bg-slate-900"
+          style={{ paddingTop: 'calc(env(safe-area-inset-top) + 24px)' }}
+        >
           <div>
             <h2 className="text-xl md:text-2xl font-black text-slate-800 dark:text-white uppercase tracking-tight">
               {selectedUserForTasks ? selectedUserForTasks.fullName : t.manageUsers}
@@ -150,8 +169,8 @@ const AdminUserModal: React.FC<AdminUserModalProps> = ({ currentUser, users, tas
           </div>
         </header>
 
-        <div className="flex-1 overflow-hidden flex flex-col lg:flex-row">
-          <div className="flex-1 p-4 md:p-6 overflow-y-auto custom-scrollbar border-r border-slate-100 dark:border-slate-800 bg-slate-50/30 dark:bg-transparent">
+        <div className="flex-1 overflow-y-auto lg:overflow-hidden flex flex-col lg:flex-row">
+          <div className="shrink-0 lg:flex-1 p-4 md:p-6 lg:overflow-y-auto custom-scrollbar border-b lg:border-b-0 lg:border-r border-slate-100 dark:border-slate-800 bg-slate-50/30 dark:bg-transparent">
             {!selectedUserForTasks ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {manageableUsers.map(u => (
@@ -213,7 +232,7 @@ const AdminUserModal: React.FC<AdminUserModalProps> = ({ currentUser, users, tas
           </div>
 
           {/* Form thêm/sửa nhân sự với logic phân cấp mới */}
-          <div className="w-full lg:w-[400px] p-8 bg-slate-50 dark:bg-slate-950/30 flex flex-col gap-6 border-t lg:border-t-0 shrink-0 overflow-y-auto custom-scrollbar">
+          <div className="w-full lg:w-[400px] p-8 bg-slate-50 dark:bg-slate-950/30 flex flex-col gap-6 lg:overflow-y-auto custom-scrollbar">
             <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em]">{editingUser?.id ? 'CHỈNH SỬA' : 'TẠO MỚI NHÂN SỰ'}</h3>
             <div className="space-y-4">
               <div className="space-y-1">
@@ -234,6 +253,14 @@ const AdminUserModal: React.FC<AdminUserModalProps> = ({ currentUser, users, tas
                   <input type="password" value={editingUser?.password || ''} onChange={e => setEditingUser(p => ({...p, password: e.target.value}))} placeholder="Mật khẩu khởi tạo" className="w-full p-4 bg-white dark:bg-slate-900 border rounded-2xl outline-none font-bold text-xs" />
                 </div>
               )}
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Sơ đồ phòng ban</label>
+                <select value={editingUser?.departmentId || ''} onChange={e => setEditingUser(p => ({...p, departmentId: e.target.value || undefined, reportsTo: ''}))} className="w-full p-4 bg-white dark:bg-slate-900 border rounded-2xl outline-none font-bold text-xs uppercase">
+                  <option value="">Không thuộc sơ đồ nào</option>
+                  {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                </select>
+              </div>
               
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Vai trò hệ thống</label>

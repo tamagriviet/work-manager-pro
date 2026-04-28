@@ -38,6 +38,10 @@ async function startServer() {
   app.use(express.json());
   const getDb = () => JSON.parse(fs.readFileSync(DB_FILE, "utf-8"));
   const saveDb = (data) => fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2));
+  app.get("/api/settings", (req, res) => {
+    const db = getDb();
+    res.json(db.settings || { language: "vi", theme: "light" });
+  });
   app.post("/api/login", (req, res) => {
     const { email, password } = req.body;
     const db = getDb();
@@ -61,6 +65,7 @@ async function startServer() {
       const updatedDb = {
         users: newState.users,
         tasks: newState.tasks,
+        departments: newState.departments || [],
         templates: newState.templates || [],
         settings: newState.settings
       };

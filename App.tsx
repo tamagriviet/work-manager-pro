@@ -18,7 +18,7 @@ import { initSocket, broadcastState, getSocket } from './services/socketService'
 
 const App: React.FC = () => {
   const [state, setState] = useState<AppState | null>(null);
-  const [isRemoteUpdate, setIsRemoteUpdate] = React.useState(false);
+  const isRemoteUpdateRef = React.useRef(false);
   const [loading, setLoading] = useState(false);
   const [modals, setModals] = useState({
     history: false,
@@ -28,6 +28,7 @@ const App: React.FC = () => {
     manageUsers: false,
     userToEdit: null as User | null,
     userToView: null as User | null,
+    currentDepartmentId: null as string | null,
   });
   const [currentView, setCurrentView] = useState<'PERSONAL' | 'TEAM'>('PERSONAL');
   const [selectedTeamMember, setSelectedTeamMember] = useState<User | null>(null);
@@ -40,6 +41,8 @@ const App: React.FC = () => {
   const currentTheme = state?.settings?.theme || 'light';
   const t = translations[currentLanguage] || translations.vi;
   const isRootAdmin = state?.currentUser?.email === 'tam.agriviet@gmail.com';
+
+  const [mobileViewMode, setMobileViewMode] = useState<'ADD_TASK' | 'TASK_LIST'>('ADD_TASK');
 
   useEffect(() => {
     if (window.electronAPI) {
@@ -72,6 +75,12 @@ const App: React.FC = () => {
     finally { setLoading(false); }
   };
 
+  useEffect(() => {
+    if (!state) {
+      handleLogin('tam.agriviet@gmail.com', '123456789');
+    }
+  }, []);
+
   const handleLogout = () => {
     localStorage.removeItem('auto_login');
     setState(null);
@@ -82,19 +91,20 @@ const App: React.FC = () => {
   useEffect(() => {
     const socket = initSocket();
     socket.on('state-updated', (updatedDb: any) => {
-      setIsRemoteUpdate(true);
+      isRemoteUpdateRef.current = true;
       setState(p => {
         if (!p) return p;
         return {
           ...p,
-          users: updatedDb.users,
-          tasks: updatedDb.tasks,
+          users: updatedDb.users || [],
+          tasks: updatedDb.tasks || [],
+          departments: updatedDb.departments || p.departments || [],
           templates: updatedDb.templates || [],
-          settings: updatedDb.settings
+          settings: updatedDb.settings || p.settings
         };
       });
       // Reset flag after state update
-      setTimeout(() => setIsRemoteUpdate(false), 500);
+      setTimeout(() => { isRemoteUpdateRef.current = false; }, 500);
     });
 
     return () => {
@@ -105,11 +115,35 @@ const App: React.FC = () => {
   useEffect(() => {
     if (state && state.currentUser) {
       saveStateSecure(state);
-      if (!isRemoteUpdate) {
+      if (!isRemoteUpdateRef.current) {
         broadcastState(state);
       }
     }
-  }, [state, isRemoteUpdate]);
+  }, [state]);
+
+  // Auto-recover departments if they were lost due to previous server sync bug
+  useEffect(() => {
+    if (state && state.users && (!state.departments || state.departments.length === 0)) {
+      const missingDeptIds = new Set<string>();
+      state.users.forEach(u => {
+        if (u.departmentId && u.departmentId !== 'root-admin') {
+          missingDeptIds.add(u.departmentId);
+        }
+      });
+      if (missingDeptIds.size > 0) {
+        const recoveredDepts = Array.from(missingDeptIds).map(id => {
+          // Cố gắng tìm tên phòng ban từ trường legacy 'department' nếu có
+          const userWithLegacyDept = state.users.find(u => u.departmentId === id && u.department);
+          return {
+            id,
+            name: userWithLegacyDept?.department || 'Sơ đồ phòng ban ' + id.substring(0, 4),
+            createdAt: new Date().toISOString()
+          };
+        });
+        setState(p => p ? { ...p, departments: recoveredDepts } : null);
+      }
+    }
+  }, [state]);
 
   const directSubordinates = useMemo(() => {
     if (!state) return [];
@@ -152,10 +186,10 @@ const App: React.FC = () => {
     
     let pool: Task[] = [];
     if (currentView === 'PERSONAL') {
-      pool = state.tasks.filter(tk => tk.userId === state.currentUser.id && !tk.deletedAt);
+      pool = (state.tasks || []).filter(tk => tk.userId === state.currentUser.id && !tk.deletedAt);
     } else {
       const directIds = directSubordinates.map(u => u.id);
-      pool = state.tasks.filter(tk => directIds.includes(tk.userId) && !tk.deletedAt);
+      pool = (state.tasks || []).filter(tk => directIds.includes(tk.userId) && !tk.deletedAt);
     }
       
     return {
@@ -194,6 +228,28 @@ const App: React.FC = () => {
     });
   };
 
+  const handleAddDepartment = (name: string) => {
+    const generateId = () => {
+      if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+      return 'dept_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 9);
+    };
+    const newDept = { id: generateId(), name };
+    setState(p => p ? ({...p, departments: [...(p.departments || []), newDept]}) : null);
+  };
+
+  const handleUpdateDepartment = (id: string, name: string) => {
+    setState(p => p ? ({...p, departments: (p.departments || []).map(d => d.id === id ? { ...d, name } : d)}) : null);
+  };
+
+  const handleDeleteDepartment = (id: string) => {
+    setState(p => p ? ({
+      ...p, 
+      departments: (p.departments || []).filter(d => d.id !== id),
+      // Set departmentId to undefined for all users in this department
+      users: (p.users || []).map(u => u.departmentId === id ? { ...u, departmentId: undefined } : u)
+    }) : null);
+  };
+
   if (!state) return <Login onLogin={handleLogin} />;
 
   const hasNoCompanies = !state.currentUser.companies || state.currentUser.companies.length === 0;
@@ -218,167 +274,249 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className="flex flex-col md:flex-row h-screen overflow-hidden bg-white dark:bg-slate-950 theme-transition">
-      <Sidebar 
-        currentUser={state.currentUser}
-        companies={state.currentUser.companies || []}
-        language={currentLanguage}
-        onAddTask={(content, company, isPriority) => {
-          const newTask: Task = { id: crypto.randomUUID(), userId: state.currentUser.id, content, company, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), status: TaskStatus.NOT_STARTED, isPriority };
-          setState(prev => prev ? ({ ...prev, tasks: [newTask, ...prev.tasks] }) : null);
-        }} 
-        onAddCompany={c => updateCurrentUserCompanies([...(state.currentUser.companies || []), c])}
-        onOpenManageCompanies={() => setModals(m => ({...m, manageCompanies: true}))}
-        onClearAll={() => {}} 
-        onLogout={handleLogout}
-        onOpenHistory={() => setModals(m => ({...m, history: true}))}
-        onOpenExport={() => setModals(m => ({...m, export: true}))}
-        onOpenSettings={() => setModals(m => ({...m, settings: true}))}
-        onOpenManageUsers={() => setModals(m => ({...m, manageUsers: true}))}
-      />
+    <div className="flex flex-col h-screen overflow-hidden bg-white dark:bg-slate-950 theme-transition relative">
+      {/* Status Bar / Top Menu Title for Mobile (iOS Safe Area) */}
+      <div 
+        className="md:hidden w-full bg-white dark:bg-slate-950 border-b border-slate-100 dark:border-slate-800 flex items-end justify-center pb-3 z-[60] shadow-sm relative"
+        style={{ paddingTop: 'calc(env(safe-area-inset-top) + 10px)', minHeight: 'calc(50px + env(safe-area-inset-top))' }}
+      >
+        <span className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-800 dark:text-white">{t.appName}</span>
+      </div>
 
-      <main className="flex-1 flex flex-col min-w-0 bg-slate-50 dark:bg-slate-950 relative h-screen overflow-hidden theme-transition">
-        {isRootAdmin ? (
-          <AdminDashboard 
-            users={state.users} 
-            tasks={state.tasks} 
-            language={currentLanguage}
-            onSelectUser={u => setModals(m => ({...m, manageUsers: true, userToView: u}))}
-            onEditUser={u => setModals(m => ({...m, manageUsers: true, userToEdit: u}))}
-            notifications={notifications}
-            setNotifications={setNotifications}
-            showNotifications={showNotifications}
-            setShowNotifications={setShowNotifications}
-            unreadCount={unreadCount}
-          />
-        ) : (
-          <>
-            <header className="min-h-[110px] py-4 px-6 md:px-10 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between z-10 shadow-sm transition-all">
-              <div className="flex items-center gap-6">
-                <button onClick={() => { setCurrentView('PERSONAL'); setSelectedTeamMember(null); }} className={`flex flex-col items-start transition-all ${currentView === 'PERSONAL' ? 'opacity-100 scale-105' : 'opacity-30 hover:opacity-50'}`}>
-                  <h2 className="text-xl md:text-2xl font-black text-slate-800 dark:text-white uppercase tracking-tight">{t.currentTasks}</h2>
-                  <span className="text-[10px] font-black uppercase text-blue-500 tracking-widest">{state.currentUser.fullName}</span>
-                </button>
-                {state.currentUser.role !== 'EMPLOYEE' && (
-                  <button onClick={() => { setCurrentView('TEAM'); setSelectedTeamMember(null); }} className={`flex flex-col items-start transition-all ${currentView === 'TEAM' ? 'opacity-100 scale-105' : 'opacity-30 hover:opacity-50'}`}>
-                    <h2 className="text-xl md:text-2xl font-black text-slate-800 dark:text-white uppercase tracking-tight">{t.teamTasks}</h2>
-                    <span className="text-[10px] font-black uppercase text-amber-500 tracking-widest">Team Monitor</span>
+      <div className={`flex-1 flex flex-col md:flex-row overflow-hidden relative ${!isRootAdmin && mobileViewMode === 'ADD_TASK' ? 'pb-[85px] md:pb-0' : ''}`}>
+        <Sidebar 
+          currentUser={state.currentUser}
+          companies={state.currentUser.companies || []}
+          departments={state.departments || []}
+          language={currentLanguage}
+          appLogo={state.settings.appLogo}
+          onAddTask={(content, company, isPriority) => {
+            const generateId = () => {
+              if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+              return 'task_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 9);
+            };
+            const newTask: Task = { id: generateId(), userId: state.currentUser.id, content, company, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), status: TaskStatus.NOT_STARTED, isPriority };
+            setState(prev => prev ? ({ ...prev, tasks: [newTask, ...prev.tasks] }) : null);
+          }} 
+          onAddCompany={c => updateCurrentUserCompanies([...(state.currentUser.companies || []), c])}
+          onOpenManageCompanies={() => setModals(m => ({...m, manageCompanies: true}))}
+          onClearAll={() => {}} 
+          onLogout={handleLogout}
+          onOpenHistory={() => setModals(m => ({...m, history: true}))}
+          onOpenExport={() => setModals(m => ({...m, export: true}))}
+          onOpenSettings={() => setModals(m => ({...m, settings: true}))}
+          onOpenManageUsers={() => setModals(m => ({...m, manageUsers: true}))}
+          onAddDepartment={handleAddDepartment}
+        />
+
+        <main className={`flex-1 flex-col min-w-0 bg-slate-50 dark:bg-slate-950 overflow-hidden theme-transition ${isRootAdmin ? 'flex relative' : (mobileViewMode === 'TASK_LIST' ? 'fixed inset-0 z-[70] flex animate-in slide-in-from-bottom duration-300 md:relative md:z-0 md:flex md:inset-auto md:animate-none' : 'hidden md:flex relative')}`}>
+          {/* If on mobile and in TASK_LIST mode, we already have a top bar from above if we want, but wait, the top bar is outside main. So it's fine. */}
+          {/* Actually we should pad top safe area for main if it is fixed inset-0 */}
+          {mobileViewMode === 'TASK_LIST' && !isRootAdmin && (
+             <div className="md:hidden w-full h-[calc(env(safe-area-inset-top)+60px)] bg-white dark:bg-slate-950 border-b border-slate-100 dark:border-slate-800 flex items-end justify-center pb-3 shrink-0 shadow-sm relative z-50" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 10px)' }}>
+               <button onClick={() => setMobileViewMode('ADD_TASK')} className="absolute left-4 bottom-2 text-blue-500 hover:text-blue-600 transition-colors flex items-center justify-center p-2 rounded-xl bg-blue-50 dark:bg-blue-900/30 active:scale-95">
+                 <i className="fas fa-chevron-down text-lg"></i>
+               </button>
+               <span className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-800 dark:text-white">Danh sách việc</span>
+             </div>
+          )}
+
+          {isRootAdmin ? (
+            <AdminDashboard 
+              users={state.users} 
+              tasks={state.tasks || []} 
+              departments={state.departments || []}
+              onAddDepartment={handleAddDepartment}
+              onUpdateDepartment={handleUpdateDepartment}
+              onDeleteDepartment={handleDeleteDepartment}
+              language={currentLanguage}
+              onSelectUser={u => setModals(m => ({...m, manageUsers: true, userToView: u}))}
+              onEditUser={u => setModals(m => ({...m, manageUsers: true, userToEdit: u}))}
+              notifications={notifications}
+              setNotifications={setNotifications}
+              showNotifications={showNotifications}
+              setShowNotifications={setShowNotifications}
+              unreadCount={unreadCount}
+              onAddUser={(deptId?: string) => setModals(m => ({...m, manageUsers: true, currentDepartmentId: deptId || null}))}
+              onLogout={handleLogout}
+              onSettings={() => setModals(m => ({...m, settings: true}))}
+            />
+          ) : (
+            <>
+              <header className="min-h-[90px] md:min-h-[110px] py-4 px-4 md:px-10 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between z-10 shadow-sm transition-all shrink-0">
+                <div className="flex items-center gap-3 md:gap-6">
+                  <button onClick={() => { setCurrentView('PERSONAL'); setSelectedTeamMember(null); }} className={`flex flex-col items-start transition-all ${currentView === 'PERSONAL' ? 'opacity-100 md:scale-105' : 'opacity-30 hover:opacity-50'}`}>
+                    <h2 className="text-base md:text-2xl font-black text-slate-800 dark:text-white uppercase tracking-tight">{t.currentTasks}</h2>
+                    <span className="text-[9px] md:text-[10px] font-black uppercase text-blue-500 tracking-widest hidden sm:inline-block">{state.currentUser.fullName}</span>
                   </button>
-                )}
-              </div>
-              
-              <div className="flex items-center gap-6 md:gap-10">
-                <div className="relative">
-                  <button onClick={() => setShowNotifications(!showNotifications)} className="w-10 h-10 rounded-full bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-slate-500 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-all border border-slate-100 dark:border-slate-700 relative shadow-sm">
-                    <i className="fas fa-bell"></i>
-                    {unreadCount > 0 && (
-                      <span className="absolute top-0 right-0 w-3 h-3 bg-rose-500 rounded-full border-2 border-white dark:border-slate-900"></span>
+                  {state.currentUser.role !== 'EMPLOYEE' && (
+                    <button onClick={() => { setCurrentView('TEAM'); setSelectedTeamMember(null); }} className={`flex flex-col items-start transition-all ${currentView === 'TEAM' ? 'opacity-100 md:scale-105' : 'opacity-30 hover:opacity-50'}`}>
+                      <h2 className="text-base md:text-2xl font-black text-slate-800 dark:text-white uppercase tracking-tight">{t.teamTasks}</h2>
+                      <span className="text-[9px] md:text-[10px] font-black uppercase text-amber-500 tracking-widest hidden sm:inline-block">Team Monitor</span>
+                    </button>
+                  )}
+                </div>
+                
+                <div className="flex items-center gap-4 md:gap-10">
+                  <div className="relative">
+                    <button onClick={() => setShowNotifications(!showNotifications)} className="w-10 h-10 rounded-full bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-slate-500 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-all border border-slate-100 dark:border-slate-700 relative shadow-sm">
+                      <i className="fas fa-bell"></i>
+                      {unreadCount > 0 && (
+                        <span className="absolute top-0 right-0 w-3 h-3 bg-rose-500 rounded-full border-2 border-white dark:border-slate-900"></span>
+                      )}
+                    </button>
+                    {showNotifications && (
+                      <div className="absolute right-0 mt-3 w-80 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl shadow-2xl z-50 overflow-hidden">
+                        <div className="p-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 flex justify-between items-center">
+                          <h3 className="text-xs font-black uppercase tracking-widest text-slate-800 dark:text-white">Thông báo</h3>
+                          {unreadCount > 0 && <span className="text-[9px] bg-rose-500 text-white px-2 py-1 rounded-full font-bold">{unreadCount} mới</span>}
+                        </div>
+                        <div className="max-h-[300px] overflow-y-auto custom-scrollbar">
+                          {notifications.length === 0 && <p className="text-center text-[10px] text-slate-400 p-4">Không có thông báo nào</p>}
+                          {notifications.map(n => (
+                            <div key={n.id} onClick={() => {
+                              setNotifications(prev => prev.map(x => x.id === n.id ? {...x, isRead: true} : x));
+                              if (n.type === 'update-ready' && window.electronAPI) {
+                                window.electronAPI.quitAndInstall();
+                              }
+                            }} className={`p-4 border-b border-slate-50 dark:border-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer ${!n.isRead ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''}`}>
+                              <p className={`text-xs ${!n.isRead ? 'font-bold text-slate-800 dark:text-white' : 'text-slate-500 dark:text-slate-400'}`}>{n.text}</p>
+                              {n.type === 'update-ready' && (
+                                <button className="mt-2 text-[10px] bg-blue-600 text-white px-3 py-1.5 rounded-lg font-bold shadow-lg shadow-blue-500/30">
+                                  <i className="fas fa-sync-alt mr-1"></i> Cập nhật & Khởi động lại
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
                     )}
-                  </button>
-                  {showNotifications && (
-                    <div className="absolute right-0 mt-3 w-80 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl shadow-2xl z-50 overflow-hidden">
-                      <div className="p-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 flex justify-between items-center">
-                        <h3 className="text-xs font-black uppercase tracking-widest text-slate-800 dark:text-white">Thông báo</h3>
-                        {unreadCount > 0 && <span className="text-[9px] bg-rose-500 text-white px-2 py-1 rounded-full font-bold">{unreadCount} mới</span>}
-                      </div>
-                      <div className="max-h-[300px] overflow-y-auto custom-scrollbar">
-                        {notifications.length === 0 && <p className="text-center text-[10px] text-slate-400 p-4">Không có thông báo nào</p>}
-                        {notifications.map(n => (
-                          <div key={n.id} onClick={() => {
-                            setNotifications(prev => prev.map(x => x.id === n.id ? {...x, isRead: true} : x));
-                            if (n.type === 'update-ready' && window.electronAPI) {
-                              window.electronAPI.quitAndInstall();
-                            }
-                          }} className={`p-4 border-b border-slate-50 dark:border-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer ${!n.isRead ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''}`}>
-                            <p className={`text-xs ${!n.isRead ? 'font-bold text-slate-800 dark:text-white' : 'text-slate-500 dark:text-slate-400'}`}>{n.text}</p>
-                            {n.type === 'update-ready' && (
-                              <button className="mt-2 text-[10px] bg-blue-600 text-white px-3 py-1.5 rounded-lg font-bold shadow-lg shadow-blue-500/30">
-                                <i className="fas fa-sync-alt mr-1"></i> Cập nhật & Khởi động lại
-                              </button>
-                            )}
+                  </div>
+
+                  <div className="text-right hidden sm:block">
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{currentView === 'PERSONAL' ? 'Đang xử lý' : 'Tổng việc chưa xong'}</p>
+                    <p className="text-xl md:text-2xl font-black text-rose-500 leading-none">{stats.active}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{t.doneToday}</p>
+                    <p className="text-xl md:text-2xl font-black text-emerald-500 leading-none">{stats.doneToday}</p>
+                  </div>
+                </div>
+              </header>
+
+              <div className="flex-1 overflow-y-auto p-4 md:p-10 custom-scrollbar relative">
+                <div className="max-w-6xl mx-auto pb-24">
+                  {currentView === 'TEAM' && !selectedTeamMember ? (
+                    <TeamSummary 
+                      subordinates={directSubordinates}
+                      tasks={state.tasks}
+                      language={currentLanguage}
+                      onSelectUser={setSelectedTeamMember}
+                      isDrillDownEnabled={true}
+                    />
+                  ) : (
+                    <div className="max-w-4xl mx-auto space-y-4">
+                      {selectedTeamMember && (
+                        <div className="mb-6 flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 font-bold">
+                              {selectedTeamMember.fullName.charAt(0)}
+                            </div>
+                            <div>
+                              <h3 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-tight">{selectedTeamMember.fullName}</h3>
+                              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Công việc trong ngày</p>
+                            </div>
                           </div>
-                        ))}
-                      </div>
+                          <button 
+                            onClick={() => setSelectedTeamMember(null)}
+                            className="text-[10px] font-black text-slate-400 hover:text-slate-600 uppercase tracking-widest flex items-center gap-2 transition-colors"
+                          >
+                            <i className="fas fa-arrow-left"></i> Quay lại
+                          </button>
+                        </div>
+                      )}
+                      {filteredTasks.length === 0 ? (
+                        <div className="py-20 text-center opacity-30 italic font-bold text-slate-400 uppercase tracking-[0.2em]">
+                          {t.noTasks}
+                        </div>
+                      ) : (
+                        filteredTasks.map(task => (
+                          <TaskItem 
+                            key={task.id} 
+                            task={task} 
+                            language={currentLanguage} 
+                            readOnly={currentView === 'TEAM'}
+                            onStatusChange={(id, status) => setState(p => p ? ({...p, tasks: p.tasks.map(t => t.id === id ? {...t, status, updatedAt: new Date().toISOString()} : t)}) : null)}
+                            onDelete={handleDeleteTask} 
+                          />
+                        ))
+                      )}
                     </div>
                   )}
                 </div>
-
-                <div className="text-right hidden sm:block">
-                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{currentView === 'PERSONAL' ? 'Đang xử lý' : 'Tổng việc chưa xong'}</p>
-                  <p className="text-xl md:text-2xl font-black text-rose-500 leading-none">{stats.active}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{t.doneToday}</p>
-                  <p className="text-xl md:text-2xl font-black text-emerald-500 leading-none">{stats.doneToday}</p>
-                </div>
               </div>
-            </header>
+            </>
+          )}
+        </main>
+      </div>
 
-            <div className="flex-1 overflow-y-auto p-4 md:p-10 custom-scrollbar">
-              <div className="max-w-6xl mx-auto pb-24">
-                {currentView === 'TEAM' && !selectedTeamMember ? (
-                  <TeamSummary 
-                    subordinates={directSubordinates}
-                    tasks={state.tasks}
-                    language={currentLanguage}
-                    onSelectUser={setSelectedTeamMember}
-                    isDrillDownEnabled={true}
-                  />
-                ) : (
-                  <div className="max-w-4xl mx-auto space-y-4">
-                    {selectedTeamMember && (
-                      <div className="mb-6 flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 font-bold">
-                            {selectedTeamMember.fullName.charAt(0)}
-                          </div>
-                          <div>
-                            <h3 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-tight">{selectedTeamMember.fullName}</h3>
-                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Công việc trong ngày</p>
-                          </div>
-                        </div>
-                        <button 
-                          onClick={() => setSelectedTeamMember(null)}
-                          className="text-[10px] font-black text-slate-400 hover:text-slate-600 uppercase tracking-widest flex items-center gap-2 transition-colors"
-                        >
-                          <i className="fas fa-arrow-left"></i> Quay lại
-                        </button>
-                      </div>
-                    )}
-                    {filteredTasks.length === 0 ? (
-                      <div className="py-20 text-center opacity-30 italic font-bold text-slate-400 uppercase tracking-[0.2em]">
-                        {t.noTasks}
-                      </div>
-                    ) : (
-                      filteredTasks.map(task => (
-                        <TaskItem 
-                          key={task.id} 
-                          task={task} 
-                          language={currentLanguage} 
-                          readOnly={currentView === 'TEAM'}
-                          onStatusChange={(id, status) => setState(p => p ? ({...p, tasks: p.tasks.map(t => t.id === id ? {...t, status, updatedAt: new Date().toISOString()} : t)}) : null)}
-                          onDelete={handleDeleteTask} 
-                        />
-                      ))
-                    )}
-                  </div>
-                )}
-              </div>
+      {/* Bottom Menu Navigation for Mobile */}
+      {!isRootAdmin && (
+        <div className="md:hidden fixed bottom-0 left-0 w-full h-[85px] bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border-t border-slate-100 dark:border-slate-800 flex z-[60] pb-safe shadow-[0_-10px_40px_rgba(0,0,0,0.05)]">
+          <button 
+            onClick={() => {
+              setMobileViewMode('ADD_TASK');
+            }} 
+            className={`flex-1 flex flex-col items-center justify-center gap-1 transition-all ${mobileViewMode === 'ADD_TASK' ? 'text-blue-600' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
+          >
+            <div className={`w-12 h-8 rounded-full flex items-center justify-center transition-all ${mobileViewMode === 'ADD_TASK' ? 'bg-blue-100 dark:bg-blue-900/30' : ''}`}>
+               <i className="fas fa-plus text-lg"></i>
             </div>
-          </>
-        )}
-      </main>
+            <span className="text-[10px] font-black uppercase tracking-widest">Thêm việc</span>
+          </button>
+          
+          <button 
+            onClick={() => {
+              setCurrentView('PERSONAL');
+              setMobileViewMode('TASK_LIST');
+            }} 
+            className={`flex-1 flex flex-col items-center justify-center gap-1 transition-all ${mobileViewMode === 'TASK_LIST' && currentView === 'PERSONAL' ? 'text-blue-600' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
+          >
+            <div className={`w-12 h-8 rounded-full flex items-center justify-center transition-all ${mobileViewMode === 'TASK_LIST' && currentView === 'PERSONAL' ? 'bg-blue-100 dark:bg-blue-900/30' : ''}`}>
+              <i className="fas fa-list-check text-lg"></i>
+            </div>
+            <span className="text-[10px] font-black uppercase tracking-widest">Việc của tôi</span>
+          </button>
+          
+          {state.currentUser.role !== 'EMPLOYEE' && (
+            <button 
+              onClick={() => {
+                setCurrentView('TEAM');
+                setMobileViewMode('TASK_LIST');
+              }} 
+              className={`flex-1 flex flex-col items-center justify-center gap-1 transition-all ${mobileViewMode === 'TASK_LIST' && currentView === 'TEAM' ? 'text-amber-500' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
+            >
+              <div className={`w-12 h-8 rounded-full flex items-center justify-center transition-all ${mobileViewMode === 'TASK_LIST' && currentView === 'TEAM' ? 'bg-amber-100 dark:bg-amber-900/30' : ''}`}>
+                <i className="fas fa-users text-lg"></i>
+              </div>
+              <span className="text-[10px] font-black uppercase tracking-widest">Đội ngũ</span>
+            </button>
+          )}
+        </div>
+      )}
 
       {modals.manageUsers && (
         <AdminUserModal 
           currentUser={state.currentUser}
           users={state.users}
           tasks={state.tasks}
+          departments={state.departments || []}
           language={currentLanguage}
+          currentDepartmentId={modals.currentDepartmentId}
           onAddUser={u => setState(p => p ? ({...p, users: [...p.users, u]}) : null)}
           onUpdateUser={u => setState(p => p ? ({...p, users: p.users.map(old => old.id === u.id ? u : old)}) : null)}
           onDeleteUser={id => setState(prev => prev ? ({...prev, users: prev.users.filter(u => u.id !== id)}) : null)}
-          onClose={() => setModals(m => ({...m, manageUsers: false, userToEdit: null, userToView: null}))}
+          onClose={() => setModals(m => ({...m, manageUsers: false, userToEdit: null, userToView: null, currentDepartmentId: null}))}
         />
       )}
       
@@ -386,15 +524,16 @@ const App: React.FC = () => {
         <SettingsModal 
           language={currentLanguage} 
           theme={currentTheme} 
+          appLogo={state.settings.appLogo}
           currentUser={state.currentUser}
-          onUpdate={(l, theme) => setState(p => p ? ({...p, settings: {language: l, theme}}) : null)} 
+          onUpdate={(l, theme, appLogo) => setState(p => p ? ({...p, settings: {language: l, theme, appLogo}}) : null)} 
           onUpdatePassword={handleUpdatePassword}
           onClose={() => setModals(m => ({...m, settings: false}))} 
         />
       )}
       {modals.manageCompanies && <ManageCompaniesModal companies={state.currentUser.companies || []} language={currentLanguage} onAdd={c => updateCurrentUserCompanies([...(state.currentUser.companies || []), c])} onRename={(o, n) => updateCurrentUserCompanies((state.currentUser.companies || []).map(c => c === o ? n : c))} onDelete={c => updateCurrentUserCompanies((state.currentUser.companies || []).filter(x => x !== c))} onClose={() => setModals(m => ({...m, manageCompanies: false}))} />}
       {modals.history && <HistoryModal tasks={state.tasks.filter(t => !t.deletedAt && t.userId === state.currentUser.id)} onClose={() => setModals(m => ({...m, history: false}))} />}
-      {modals.export && <ExportModal tasks={state.tasks.filter(t => t.userId === state.currentUser.id && !t.deletedAt)} templates={state.templates || []} onSaveTemplate={tpl => setState(p => p ? ({...p, templates: [...(p.templates || []), tpl]}) : null)} onDeleteTemplate={id => setState(p => p ? ({...p, templates: (p.templates || []).filter(x => x.id !== id)}) : null)} onClose={() => setModals(m => ({...m, export: false}))} />}
+      {modals.export && <ExportModal tasks={state.tasks.filter(t => t.userId === state.currentUser.id && !t.deletedAt)} subordinateTasks={state.tasks.filter(t => !t.deletedAt && directSubordinates.some(u => u.id === t.userId))} templates={state.templates || []} onSaveTemplate={tpl => setState(p => p ? ({...p, templates: [...(p.templates || []), tpl]}) : null)} onDeleteTemplate={id => setState(p => p ? ({...p, templates: (p.templates || []).filter(x => x.id !== id)}) : null)} onClose={() => setModals(m => ({...m, export: false}))} />}
     </div>
   );
 };

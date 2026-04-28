@@ -54,7 +54,10 @@ const ManageCompaniesModal: React.FC<ManageCompaniesModalProps> = ({ companies, 
   return (
     <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-200">
       <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-[2.5rem] shadow-2xl border border-slate-100 dark:border-slate-800 overflow-hidden transform animate-in zoom-in-95 duration-200">
-        <header className="p-8 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-white dark:bg-slate-900">
+        <header 
+          className="px-8 pb-8 md:p-8 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-white dark:bg-slate-900"
+          style={{ paddingTop: 'calc(env(safe-area-inset-top) + 32px)' }}
+        >
           <h2 className="text-xl font-black text-slate-800 dark:text-white uppercase tracking-tight">{t.manageCompanies}</h2>
           <button onClick={onClose} className="text-slate-300 hover:text-rose-500 transition-colors">
             <i className="fas fa-times text-xl"></i>
