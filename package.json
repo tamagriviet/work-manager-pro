@@ -9,7 +9,7 @@
     "build": "vite build && esbuild server.ts --bundle --platform=node --format=esm --packages=external --outfile=dist-server/server.js",
     "preview": "vite preview",
     "start": "node dist-server/server.js",
-    "electron:dev": "cross-env NODE_ENV=development concurrently -k \"tsx server.ts\" \"wait-on tcp:3000 && electron .\"",
+    "electron:dev": "cross-env NODE_ENV=development concurrently -k \"tsx server.ts\" \"wait-on tcp:45001 && electron .\"",
     "build:exe": "npm run build && electron-builder"
   },
   "dependencies": {
@@ -19,6 +19,7 @@
     "cors": "^2.8.6",
     "electron-updater": "^6.8.3",
     "express": "^5.2.1",
+    "mongodb": "^7.2.0",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
     "react-zoom-pan-pinch": "^4.0.3",
@@ -54,6 +55,10 @@
     },
     "win": {
       "target": "nsis"
+    },
+    "nsis": {
+      "include": "build/installer.nsh",
+      "runAfterFinish": false
     },
     "publish": [
       {

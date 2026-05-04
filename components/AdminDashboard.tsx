@@ -500,9 +500,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </div>
 
             {/* Sơ đồ hiển thị mặc định trên Desktop */}
-            <div className="hidden md:flex relative overflow-x-auto custom-scrollbar w-full justify-center">
+            <div className="hidden md:block relative overflow-visible w-full mt-10 pb-20">
                <style>{treeStyles}</style>
-               <div className="org-tree min-w-max">
+               <div className="org-tree w-fit mx-auto min-w-max">
                  <ul>
                    {hierarchy['root-admin'] && hierarchy['root-admin'].map(user => renderNode(user))}
                  </ul>

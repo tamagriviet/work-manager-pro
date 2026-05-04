@@ -25,11 +25,6 @@ const createDefaultState = (): AppState => {
   };
 };
 
-export const saveStateSecure = async (state: AppState) => {
-  // We use WebSockets for real-time saving/broadcasting désormais
-  return;
-};
-
 import { getServerUrl } from './configService';
 
 export const loadStateSecure = async (email: string, password?: string): Promise<AppState> => {

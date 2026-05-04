@@ -33,7 +33,7 @@ async function createWindow() {
 
   try {
     if (process.env.NODE_ENV === 'development') {
-      mainWindow.loadURL('http://localhost:3000');
+      mainWindow.loadURL('http://localhost:45001');
     } else {
       const serverPath = path.join(__dirname, '../dist-server/server.js');
       const fileUrl = pathToFileURL(serverPath).href;
@@ -41,9 +41,9 @@ async function createWindow() {
       
       // Chờ cho server express thực sự khởi động thay vì dùng setTimeout cứng
       const checkServer = () => {
-        http.get('http://localhost:3000', (res) => {
+        http.get('http://localhost:45001', (res) => {
           if (res.statusCode === 200) {
-            mainWindow.loadURL('http://localhost:3000');
+            mainWindow.loadURL('http://localhost:45001');
           } else {
             setTimeout(checkServer, 200);
           }

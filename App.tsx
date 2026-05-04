@@ -12,9 +12,9 @@ import AdminUserModal from './components/AdminUserModal';
 import AdminDashboard from './components/AdminDashboard';
 import TeamSummary from './components/TeamSummary';
 import { Task, TaskStatus, AppState, User, UserRole, Language, Theme } from './types';
-import { loadStateSecure, saveStateSecure } from './services/storageService';
+import { loadStateSecure } from './services/storageService';
 import { translations } from './translations';
-import { initSocket, broadcastState, getSocket } from './services/socketService';
+import { initSocket, broadcastState, getSocket, dispatchAction } from './services/socketService';
 
 const App: React.FC = () => {
   const [state, setState] = useState<AppState | null>(null);
@@ -75,11 +75,6 @@ const App: React.FC = () => {
     finally { setLoading(false); }
   };
 
-  useEffect(() => {
-    if (!state) {
-      handleLogin('tam.agriviet@gmail.com', '123456789');
-    }
-  }, []);
 
   const handleLogout = () => {
     localStorage.removeItem('auto_login');
@@ -107,29 +102,44 @@ const App: React.FC = () => {
       setTimeout(() => { isRemoteUpdateRef.current = false; }, 500);
     });
 
+    socket.on('force-logout', (userId: string) => {
+      setState(p => {
+        if (p && p.currentUser && p.currentUser.id === userId) {
+          alert('Tài khoản của bạn đã được đăng nhập từ một thiết bị khác. Bạn đã bị đăng xuất.');
+          localStorage.removeItem('auto_login');
+          return null;
+        }
+        return p;
+      });
+    });
+
     return () => {
       socket.off('state-updated');
+      socket.off('force-logout');
     };
   }, []);
 
   useEffect(() => {
     if (state && state.currentUser) {
-      saveStateSecure(state);
-      if (!isRemoteUpdateRef.current) {
-        broadcastState(state);
-      }
+      const socket = initSocket();
+      socket.emit('user-login', state.currentUser.id);
     }
-  }, [state]);
+  }, [state?.currentUser?.id]);
+
+
 
   // Auto-recover departments if they were lost due to previous server sync bug
   useEffect(() => {
-    if (state && state.users && (!state.departments || state.departments.length === 0)) {
+    if (state && state.users) {
+      const existingDeptIds = new Set((state.departments || []).map(d => d.id));
       const missingDeptIds = new Set<string>();
+      
       state.users.forEach(u => {
-        if (u.departmentId && u.departmentId !== 'root-admin') {
+        if (u.departmentId && u.departmentId !== 'root-admin' && !existingDeptIds.has(u.departmentId)) {
           missingDeptIds.add(u.departmentId);
         }
       });
+      
       if (missingDeptIds.size > 0) {
         const recoveredDepts = Array.from(missingDeptIds).map(id => {
           // Cố gắng tìm tên phòng ban từ trường legacy 'department' nếu có
@@ -140,10 +150,17 @@ const App: React.FC = () => {
             createdAt: new Date().toISOString()
           };
         });
-        setState(p => p ? { ...p, departments: recoveredDepts } : null);
+        
+        // Cập nhật local state
+        setState(p => p ? { ...p, departments: [...(p.departments || []), ...recoveredDepts] } : null);
+        
+        // Lưu vĩnh viễn vào server để không bị mất khi cài đè hoặc reset app
+        recoveredDepts.forEach(dept => {
+          dispatchAction({ type: 'ADD_DEPARTMENT', payload: dept });
+        });
       }
     }
-  }, [state]);
+  }, [state?.users, state?.departments]);
 
   const directSubordinates = useMemo(() => {
     if (!state) return [];
@@ -200,7 +217,9 @@ const App: React.FC = () => {
 
   const handleDeleteTask = (id: string) => {
     if (window.confirm(t.confirmDeleteTask)) {
-      setState(p => p ? ({...p, tasks: p.tasks.map(t => t.id === id ? {...t, deletedAt: new Date().toISOString()} : t)}) : null);
+      const deletedAt = new Date().toISOString();
+      setState(p => p ? ({...p, tasks: p.tasks.map(t => t.id === id ? {...t, deletedAt} : t)}) : null);
+      dispatchAction({ type: 'DELETE_TASK', payload: { id, deletedAt } });
     }
   };
 
@@ -214,6 +233,7 @@ const App: React.FC = () => {
         users: p.users.map(u => u.id === updatedUser.id ? updatedUser : u)
       };
     });
+    dispatchAction({ type: 'UPDATE_USER_COMPANIES', payload: { id: state?.currentUser?.id, companies: newCompanies } });
   };
 
   const handleUpdatePassword = (newPass: string) => {
@@ -226,6 +246,7 @@ const App: React.FC = () => {
         users: p.users.map(u => u.id === updatedUser.id ? updatedUser : u)
       };
     });
+    dispatchAction({ type: 'UPDATE_USER_PASSWORD', payload: { id: state?.currentUser?.id, password: newPass } });
   };
 
   const handleAddDepartment = (name: string) => {
@@ -235,10 +256,12 @@ const App: React.FC = () => {
     };
     const newDept = { id: generateId(), name };
     setState(p => p ? ({...p, departments: [...(p.departments || []), newDept]}) : null);
+    dispatchAction({ type: 'ADD_DEPARTMENT', payload: newDept });
   };
 
   const handleUpdateDepartment = (id: string, name: string) => {
     setState(p => p ? ({...p, departments: (p.departments || []).map(d => d.id === id ? { ...d, name } : d)}) : null);
+    dispatchAction({ type: 'UPDATE_DEPARTMENT', payload: { id, name } });
   };
 
   const handleDeleteDepartment = (id: string) => {
@@ -248,6 +271,7 @@ const App: React.FC = () => {
       // Set departmentId to undefined for all users in this department
       users: (p.users || []).map(u => u.departmentId === id ? { ...u, departmentId: undefined } : u)
     }) : null);
+    dispatchAction({ type: 'DELETE_DEPARTMENT', payload: { id } });
   };
 
   if (!state) return <Login onLogin={handleLogin} />;
@@ -259,15 +283,18 @@ const App: React.FC = () => {
       <Setup 
         initialFullName={state.currentUser.fullName}
         initialJobTitle={state.currentUser.jobTitle}
-        onComplete={(f, j, c) => setState(p => {
-          if (!p) return null;
-          const updatedUser = { ...p.currentUser, fullName: f, jobTitle: j, companies: c };
-          return {
-            ...p,
-            currentUser: updatedUser,
-            users: p.users.map(u => u.id === updatedUser.id ? updatedUser : u)
-          };
-        })} 
+        onComplete={(f, j, c) => {
+          setState(p => {
+            if (!p) return null;
+            const updatedUser = { ...p.currentUser, fullName: f, jobTitle: j, companies: c };
+            return {
+              ...p,
+              currentUser: updatedUser,
+              users: p.users.map(u => u.id === updatedUser.id ? updatedUser : u)
+            };
+          });
+          dispatchAction({ type: 'SETUP_USER', payload: { id: state?.currentUser?.id, fullName: f, jobTitle: j, companies: c } });
+        }} 
         onLogout={handleLogout} 
       />
     );
@@ -297,6 +324,7 @@ const App: React.FC = () => {
             };
             const newTask: Task = { id: generateId(), userId: state.currentUser.id, content, company, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), status: TaskStatus.NOT_STARTED, isPriority };
             setState(prev => prev ? ({ ...prev, tasks: [newTask, ...prev.tasks] }) : null);
+            dispatchAction({ type: 'ADD_TASK', payload: newTask });
           }} 
           onAddCompany={c => updateCurrentUserCompanies([...(state.currentUser.companies || []), c])}
           onOpenManageCompanies={() => setModals(m => ({...m, manageCompanies: true}))}
@@ -446,7 +474,11 @@ const App: React.FC = () => {
                             task={task} 
                             language={currentLanguage} 
                             readOnly={currentView === 'TEAM'}
-                            onStatusChange={(id, status) => setState(p => p ? ({...p, tasks: p.tasks.map(t => t.id === id ? {...t, status, updatedAt: new Date().toISOString()} : t)}) : null)}
+                            onStatusChange={(id, status) => {
+                              const updatedAt = new Date().toISOString();
+                              setState(p => p ? ({...p, tasks: p.tasks.map(t => t.id === id ? {...t, status, updatedAt} : t)}) : null);
+                              dispatchAction({ type: 'UPDATE_TASK_STATUS', payload: { id, status, updatedAt } });
+                            }}
                             onDelete={handleDeleteTask} 
                           />
                         ))
@@ -513,9 +545,9 @@ const App: React.FC = () => {
           departments={state.departments || []}
           language={currentLanguage}
           currentDepartmentId={modals.currentDepartmentId}
-          onAddUser={u => setState(p => p ? ({...p, users: [...p.users, u]}) : null)}
-          onUpdateUser={u => setState(p => p ? ({...p, users: p.users.map(old => old.id === u.id ? u : old)}) : null)}
-          onDeleteUser={id => setState(prev => prev ? ({...prev, users: prev.users.filter(u => u.id !== id)}) : null)}
+          onAddUser={u => { setState(p => p ? ({...p, users: [...p.users, u]}) : null); dispatchAction({ type: 'ADD_USER', payload: u }); }}
+          onUpdateUser={u => { setState(p => p ? ({...p, users: p.users.map(old => old.id === u.id ? u : old)}) : null); dispatchAction({ type: 'UPDATE_USER', payload: u }); }}
+          onDeleteUser={id => { setState(prev => prev ? ({...prev, users: prev.users.filter(u => u.id !== id)}) : null); dispatchAction({ type: 'DELETE_USER', payload: { id } }); }}
           onClose={() => setModals(m => ({...m, manageUsers: false, userToEdit: null, userToView: null, currentDepartmentId: null}))}
         />
       )}
@@ -526,14 +558,14 @@ const App: React.FC = () => {
           theme={currentTheme} 
           appLogo={state.settings.appLogo}
           currentUser={state.currentUser}
-          onUpdate={(l, theme, appLogo) => setState(p => p ? ({...p, settings: {language: l, theme, appLogo}}) : null)} 
+          onUpdate={(l, theme, appLogo) => { setState(p => p ? ({...p, settings: {language: l, theme, appLogo}}) : null); dispatchAction({ type: 'UPDATE_SETTINGS', payload: {language: l, theme, appLogo} }); }} 
           onUpdatePassword={handleUpdatePassword}
           onClose={() => setModals(m => ({...m, settings: false}))} 
         />
       )}
       {modals.manageCompanies && <ManageCompaniesModal companies={state.currentUser.companies || []} language={currentLanguage} onAdd={c => updateCurrentUserCompanies([...(state.currentUser.companies || []), c])} onRename={(o, n) => updateCurrentUserCompanies((state.currentUser.companies || []).map(c => c === o ? n : c))} onDelete={c => updateCurrentUserCompanies((state.currentUser.companies || []).filter(x => x !== c))} onClose={() => setModals(m => ({...m, manageCompanies: false}))} />}
       {modals.history && <HistoryModal tasks={state.tasks.filter(t => !t.deletedAt && t.userId === state.currentUser.id)} onClose={() => setModals(m => ({...m, history: false}))} />}
-      {modals.export && <ExportModal tasks={state.tasks.filter(t => t.userId === state.currentUser.id && !t.deletedAt)} subordinateTasks={state.tasks.filter(t => !t.deletedAt && directSubordinates.some(u => u.id === t.userId))} templates={state.templates || []} onSaveTemplate={tpl => setState(p => p ? ({...p, templates: [...(p.templates || []), tpl]}) : null)} onDeleteTemplate={id => setState(p => p ? ({...p, templates: (p.templates || []).filter(x => x.id !== id)}) : null)} onClose={() => setModals(m => ({...m, export: false}))} />}
+      {modals.export && <ExportModal tasks={state.tasks.filter(t => t.userId === state.currentUser.id && !t.deletedAt)} subordinateTasks={state.tasks.filter(t => !t.deletedAt && directSubordinates.some(u => u.id === t.userId))} templates={state.templates || []} onSaveTemplate={tpl => { setState(p => p ? ({...p, templates: [...(p.templates || []), tpl]}) : null); dispatchAction({ type: 'ADD_TEMPLATE', payload: tpl }); }} onDeleteTemplate={id => { setState(p => p ? ({...p, templates: (p.templates || []).filter(x => x.id !== id)}) : null); dispatchAction({ type: 'DELETE_TEMPLATE', payload: { id } }); }} onClose={() => setModals(m => ({...m, export: false}))} />}
     </div>
   );
 };

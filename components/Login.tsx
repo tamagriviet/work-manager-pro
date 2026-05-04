@@ -16,6 +16,16 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [appLogo, setAppLogo] = useState<string | null>(null);
   
   useEffect(() => {
+    // Clear legacy auto-login state to prevent unwanted automatic login after fresh install or update
+    const currentAppVersion = packageJson.version;
+    const storedAppVersion = localStorage.getItem('app_version');
+    
+    if (storedAppVersion !== currentAppVersion) {
+      localStorage.removeItem('auto_login');
+      localStorage.removeItem('saved_password');
+      localStorage.setItem('app_version', currentAppVersion);
+    }
+
     const savedEmail = localStorage.getItem('saved_email');
     const savedPassword = localStorage.getItem('saved_password');
     const autoLogin = localStorage.getItem('auto_login');

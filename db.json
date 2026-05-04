@@ -11,6 +11,13 @@
       "companies": [
         "Agriviet"
       ]
+    },
+    {
+      "id": "user-1",
+      "email": "test@test.com",
+      "password": "123",
+      "fullName": "Test",
+      "role": "EMPLOYEE"
     }
   ],
   "tasks": [],
@@ -18,5 +25,16 @@
   "settings": {
     "language": "vi",
     "theme": "light"
-  }
+  },
+  "departments": [
+    {
+      "id": "dept-1",
+      "name": "IT"
+    },
+    {
+      "id": "test-dept-123",
+      "name": "Test Department",
+      "createdAt": "2026-05-04T09:29:18.996Z"
+    }
+  ]
 }
