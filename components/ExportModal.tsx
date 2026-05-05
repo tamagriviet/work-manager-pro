@@ -34,8 +34,9 @@ const ExportModal: React.FC<ExportModalProps> = ({ tasks, subordinateTasks, temp
     if (layout !== 'GROUPED_BY_COMPANY') return null;
     const groups: Record<string, Task[]> = {};
     filteredTasks.forEach(task => {
-      const existingKey = Object.keys(groups).find(k => k.toLowerCase() === task.company.toLowerCase());
-      const key = existingKey || task.company;
+      const taskCompanyTrimmed = (task.company || '').trim();
+      const existingKey = Object.keys(groups).find(k => k.trim().toLowerCase() === taskCompanyTrimmed.toLowerCase());
+      const key = existingKey || taskCompanyTrimmed || 'Khác';
       if (!groups[key]) groups[key] = [];
       groups[key].push(task);
     });

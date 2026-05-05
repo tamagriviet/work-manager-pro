@@ -565,7 +565,20 @@ const App: React.FC = () => {
       )}
       {modals.manageCompanies && <ManageCompaniesModal companies={state.currentUser.companies || []} language={currentLanguage} onAdd={c => updateCurrentUserCompanies([...(state.currentUser.companies || []), c])} onRename={(o, n) => updateCurrentUserCompanies((state.currentUser.companies || []).map(c => c === o ? n : c))} onDelete={c => updateCurrentUserCompanies((state.currentUser.companies || []).filter(x => x !== c))} onClose={() => setModals(m => ({...m, manageCompanies: false}))} />}
       {modals.history && <HistoryModal tasks={state.tasks.filter(t => !t.deletedAt && t.userId === state.currentUser.id)} onClose={() => setModals(m => ({...m, history: false}))} />}
-      {modals.export && <ExportModal tasks={state.tasks.filter(t => t.userId === state.currentUser.id && !t.deletedAt)} subordinateTasks={state.tasks.filter(t => !t.deletedAt && directSubordinates.some(u => u.id === t.userId))} templates={state.templates || []} onSaveTemplate={tpl => { setState(p => p ? ({...p, templates: [...(p.templates || []), tpl]}) : null); dispatchAction({ type: 'ADD_TEMPLATE', payload: tpl }); }} onDeleteTemplate={id => { setState(p => p ? ({...p, templates: (p.templates || []).filter(x => x.id !== id)}) : null); dispatchAction({ type: 'DELETE_TEMPLATE', payload: { id } }); }} onClose={() => setModals(m => ({...m, export: false}))} />}
+      {modals.export && (() => {
+        const targetUser = currentView === 'TEAM' && selectedTeamMember ? selectedTeamMember : state.currentUser;
+        const targetSubordinates = state.users.filter(u => u.reportsTo === targetUser.id);
+        return (
+          <ExportModal 
+            tasks={state.tasks.filter(t => t.userId === targetUser.id && !t.deletedAt)} 
+            subordinateTasks={state.tasks.filter(t => !t.deletedAt && targetSubordinates.some(u => u.id === t.userId))} 
+            templates={state.templates || []} 
+            onSaveTemplate={tpl => { setState(p => p ? ({...p, templates: [...(p.templates || []), tpl]}) : null); dispatchAction({ type: 'ADD_TEMPLATE', payload: tpl }); }} 
+            onDeleteTemplate={id => { setState(p => p ? ({...p, templates: (p.templates || []).filter(x => x.id !== id)}) : null); dispatchAction({ type: 'DELETE_TEMPLATE', payload: { id } }); }} 
+            onClose={() => setModals(m => ({...m, export: false}))} 
+          />
+        );
+      })()}
     </div>
   );
 };
