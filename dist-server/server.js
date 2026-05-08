@@ -113,6 +113,9 @@ async function startServer() {
       case "UPDATE_TASK_STATUS":
         db.tasks = db.tasks.map((t) => t.id === action.payload.id ? { ...t, status: action.payload.status, updatedAt: action.payload.updatedAt } : t);
         break;
+      case "UPDATE_TASK_CONTENT":
+        db.tasks = db.tasks.map((t) => t.id === action.payload.id ? { ...t, content: action.payload.content, updatedAt: action.payload.updatedAt } : t);
+        break;
       case "DELETE_TASK":
         db.tasks = db.tasks.map((t) => t.id === action.payload.id ? { ...t, deletedAt: action.payload.deletedAt } : t);
         break;
@@ -176,6 +179,9 @@ async function startServer() {
           break;
         case "UPDATE_TASK_STATUS":
           db.tasks = db.tasks.map((t) => t.id === action.payload.id ? { ...t, status: action.payload.status, updatedAt: action.payload.updatedAt } : t);
+          break;
+        case "UPDATE_TASK_CONTENT":
+          db.tasks = db.tasks.map((t) => t.id === action.payload.id ? { ...t, content: action.payload.content, updatedAt: action.payload.updatedAt } : t);
           break;
         case "DELETE_TASK":
           db.tasks = db.tasks.map((t) => t.id === action.payload.id ? { ...t, deletedAt: action.payload.deletedAt } : t);

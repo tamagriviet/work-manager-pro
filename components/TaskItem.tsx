@@ -71,36 +71,54 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, language, onStatusChange, onC
           </span>
         </div>
         {isEditing ? (
-          <textarea
-            ref={inputRef}
-            value={editContent}
-            onChange={(e) => setEditContent(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                setIsEditing(false);
-                if (editContent.trim() && editContent !== task.content) {
-                  onContentChange?.(task.id, editContent.trim());
-                } else {
+          <div className="w-full flex flex-col gap-2 mt-1">
+            <textarea
+              ref={inputRef}
+              value={editContent}
+              onChange={(e) => setEditContent(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  setIsEditing(false);
+                  if (editContent.trim() && editContent !== task.content) {
+                    onContentChange?.(task.id, editContent.trim());
+                  } else {
+                    setEditContent(task.content);
+                  }
+                }
+                if (e.key === 'Escape') {
+                  setIsEditing(false);
                   setEditContent(task.content);
                 }
-              }
-              if (e.key === 'Escape') {
-                setIsEditing(false);
-                setEditContent(task.content);
-              }
-            }}
-            onBlur={() => {
-              setIsEditing(false);
-              if (editContent.trim() && editContent !== task.content) {
-                onContentChange?.(task.id, editContent.trim());
-              } else {
-                setEditContent(task.content);
-              }
-            }}
-            className="w-full bg-white dark:bg-slate-900 border border-blue-400 dark:border-blue-600 rounded-xl p-2 md:p-3 text-base md:text-lg font-bold text-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-blue-500/50 resize-none overflow-hidden mt-1 transition-all"
-            rows={2}
-          />
+              }}
+              className="w-full bg-white dark:bg-slate-900 border border-blue-400 dark:border-blue-600 rounded-xl p-2 md:p-3 text-base md:text-lg font-bold text-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-blue-500/50 resize-none overflow-hidden transition-all"
+              rows={2}
+            />
+            <div className="flex items-center justify-end gap-2">
+              <button
+                onClick={() => {
+                  setIsEditing(false);
+                  setEditContent(task.content);
+                }}
+                className="px-4 py-1.5 rounded-lg text-sm font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={() => {
+                  setIsEditing(false);
+                  if (editContent.trim() && editContent !== task.content) {
+                    onContentChange?.(task.id, editContent.trim());
+                  } else {
+                    setEditContent(task.content);
+                  }
+                }}
+                className="px-4 py-1.5 rounded-lg text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-sm transition-colors"
+              >
+                Lưu
+              </button>
+            </div>
+          </div>
         ) : (
           <div className="flex items-start gap-2 group/edit mt-1 w-full">
             <p className={`flex-1 text-slate-800 dark:text-white font-bold text-base md:text-lg leading-snug break-words ${isDone ? 'line-through opacity-40 text-slate-400' : ''}`}>
