@@ -180,11 +180,16 @@ const App: React.FC = () => {
     if (currentView === 'PERSONAL') {
       baseTasks = state.tasks.filter(tk => tk.userId === state.currentUser.id && !tk.deletedAt);
     } else if (selectedTeamMember && (isRootAdmin || isManagerOfSelected)) {
-      // Khi xem task của nhân viên, ưu tiên hiển thị các task liên quan đến hôm nay
+      // Khi xem task của nhân viên, hiển thị việc hôm nay và các việc chưa hoàn thành
       baseTasks = state.tasks.filter(tk => 
         tk.userId === selectedTeamMember.id && 
         !tk.deletedAt &&
-        (tk.createdAt.startsWith(today) || (tk.status === TaskStatus.DONE && tk.updatedAt.startsWith(today)))
+        (
+          tk.createdAt.startsWith(today) || 
+          (tk.status === TaskStatus.DONE && tk.updatedAt.startsWith(today)) ||
+          tk.status === TaskStatus.NOT_STARTED ||
+          tk.status === TaskStatus.IN_PROGRESS
+        )
       );
     } else {
       return [];
@@ -478,6 +483,11 @@ const App: React.FC = () => {
                               const updatedAt = new Date().toISOString();
                               setState(p => p ? ({...p, tasks: p.tasks.map(t => t.id === id ? {...t, status, updatedAt} : t)}) : null);
                               dispatchAction({ type: 'UPDATE_TASK_STATUS', payload: { id, status, updatedAt } });
+                            }}
+                            onContentChange={(id, content) => {
+                              const updatedAt = new Date().toISOString();
+                              setState(p => p ? ({...p, tasks: p.tasks.map(t => t.id === id ? {...t, content, updatedAt} : t)}) : null);
+                              dispatchAction({ type: 'UPDATE_TASK_CONTENT', payload: { id, content, updatedAt } });
                             }}
                             onDelete={handleDeleteTask} 
                           />

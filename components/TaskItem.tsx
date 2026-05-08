@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Task, TaskStatus, Language } from '../types';
 import { STATUS_LABELS, getCompanyColor } from '../constants';
 import { translations } from '../translations';
@@ -8,13 +8,26 @@ interface TaskItemProps {
   task: Task;
   language: Language;
   onStatusChange?: (id: string, status: TaskStatus) => void;
+  onContentChange?: (id: string, newContent: string) => void;
   onDelete?: (id: string) => void;
   readOnly?: boolean;
 }
 
-const TaskItem: React.FC<TaskItemProps> = ({ task, language, onStatusChange, onDelete, readOnly = false }) => {
+const TaskItem: React.FC<TaskItemProps> = ({ task, language, onStatusChange, onContentChange, onDelete, readOnly = false }) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editContent, setEditContent] = useState(task.content);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    if (isEditing && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [isEditing]);
+
   const t = translations[language] || translations.vi;
-  const formattedTime = new Date(task.createdAt).toLocaleTimeString(language, { hour: '2-digit', minute: '2-digit' });
+  const createdAtDate = new Date(task.createdAt);
+  const formattedDate = createdAtDate.toLocaleDateString(language, { day: '2-digit', month: '2-digit', year: 'numeric' });
+  const formattedTime = createdAtDate.toLocaleTimeString(language, { hour: '2-digit', minute: '2-digit' });
   const cpColor = getCompanyColor(task.company);
   const isDone = task.status === TaskStatus.DONE;
   const isNotStarted = task.status === TaskStatus.NOT_STARTED;
@@ -54,12 +67,56 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, language, onStatusChange, onD
             {task.company}
           </span>
           <span className="text-[10px] text-slate-400 font-bold uppercase tracking-tight ml-auto">
-            <i className="far fa-clock mr-1"></i> {formattedTime}
+            <i className="far fa-clock mr-1"></i> {formattedDate} - {formattedTime}
           </span>
         </div>
-        <p className={`text-slate-800 dark:text-white font-bold text-base md:text-lg leading-snug break-words ${isDone ? 'line-through opacity-40 text-slate-400' : ''}`}>
-          {task.content}
-        </p>
+        {isEditing ? (
+          <textarea
+            ref={inputRef}
+            value={editContent}
+            onChange={(e) => setEditContent(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                setIsEditing(false);
+                if (editContent.trim() && editContent !== task.content) {
+                  onContentChange?.(task.id, editContent.trim());
+                } else {
+                  setEditContent(task.content);
+                }
+              }
+              if (e.key === 'Escape') {
+                setIsEditing(false);
+                setEditContent(task.content);
+              }
+            }}
+            onBlur={() => {
+              setIsEditing(false);
+              if (editContent.trim() && editContent !== task.content) {
+                onContentChange?.(task.id, editContent.trim());
+              } else {
+                setEditContent(task.content);
+              }
+            }}
+            className="w-full bg-white dark:bg-slate-900 border border-blue-400 dark:border-blue-600 rounded-xl p-2 md:p-3 text-base md:text-lg font-bold text-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-blue-500/50 resize-none overflow-hidden mt-1 transition-all"
+            rows={2}
+          />
+        ) : (
+          <div className="flex items-start gap-2 group/edit mt-1 w-full">
+            <p className={`flex-1 text-slate-800 dark:text-white font-bold text-base md:text-lg leading-snug break-words ${isDone ? 'line-through opacity-40 text-slate-400' : ''}`}>
+              {task.content}
+            </p>
+            {!readOnly && !isDone && (
+              <button 
+                onClick={() => { setIsEditing(true); setEditContent(task.content); }}
+                className="opacity-0 group-hover/edit:opacity-100 transition-opacity w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900 flex items-center justify-center shrink-0"
+                title="Chỉnh sửa công việc"
+              >
+                <i className="fas fa-pen text-xs"></i>
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {!readOnly && (
