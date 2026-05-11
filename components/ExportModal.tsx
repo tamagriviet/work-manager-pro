@@ -88,10 +88,28 @@ const ExportModal: React.FC<ExportModalProps> = ({ tasks, subordinateTasks, temp
         logging: false
       });
       const dataUrl = canvas.toDataURL('image/png');
-      const link = document.createElement('a');
-      link.href = dataUrl;
-      link.download = `Bao_Cao_${startDate}.png`;
-      link.click();
+      
+      if (typeof window !== 'undefined' && (window as any).Capacitor && (window as any).Capacitor.isNativePlatform()) {
+        const { Filesystem, Directory } = await import('@capacitor/filesystem');
+        const { Share } = await import('@capacitor/share');
+        const base64Data = dataUrl.split(',')[1];
+        const fileName = `Bao_Cao_${startDate}.png`;
+        const savedFile = await Filesystem.writeFile({
+          path: fileName,
+          data: base64Data,
+          directory: Directory.Cache
+        });
+        await Share.share({
+          title: 'Báo Cáo',
+          url: savedFile.uri,
+          dialogTitle: 'Chia sẻ báo cáo'
+        });
+      } else {
+        const link = document.createElement('a');
+        link.href = dataUrl;
+        link.download = `Bao_Cao_${startDate}.png`;
+        link.click();
+      }
     } catch (err) {
       alert("Xuất ảnh lỗi. Vui lòng thử lại!");
     }
@@ -179,14 +197,14 @@ const ExportModal: React.FC<ExportModalProps> = ({ tasks, subordinateTasks, temp
                           const cpColor = getCompanyColor(t.company);
                           return (
                             <tr key={t.id}>
-                               <td className="p-4 border">
-                                  <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${cpColor.light} ${cpColor.text}`}>
+                               <td className={`p-4 border ${cpColor.badge} align-middle text-center`}>
+                                  <span className="text-[10px] font-black uppercase tracking-widest text-white">
                                     {t.company}
                                   </span>
                                </td>
-                               <td className="p-4 border text-[11px] text-slate-700 font-bold">{t.content}</td>
-                               <td className="p-4 border text-[11px] text-blue-600 font-black">{t.status !== TaskStatus.DONE ? t.content : ""}</td>
-                               <td className="p-4 border text-[11px] text-center text-slate-400 font-bold">{formatDate(t.createdAt.split('T')[0])}</td>
+                               <td className={`p-4 border text-[11px] text-slate-700 font-bold ${cpColor.rowBg}`}>{t.content}</td>
+                               <td className={`p-4 border text-[11px] text-blue-600 font-black ${cpColor.rowBg}`}>{t.status !== TaskStatus.DONE ? t.content : ""}</td>
+                               <td className={`p-4 border text-[11px] text-center text-slate-400 font-bold ${cpColor.rowBg}`}>{formatDate(t.createdAt.split('T')[0])}</td>
                             </tr>
                           );
                         })
@@ -195,15 +213,15 @@ const ExportModal: React.FC<ExportModalProps> = ({ tasks, subordinateTasks, temp
                           const cpColor = getCompanyColor(company);
                           return (
                             <tr key={company}>
-                               <td className="p-4 border align-top">
-                                  <span className={`px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${cpColor.badge} text-white`}>
+                               <td className={`p-4 border align-top ${cpColor.badge} text-center`}>
+                                  <span className="text-[10px] font-black uppercase tracking-widest text-white">
                                     {company}
                                   </span>
                                </td>
-                               <td className="p-4 border text-[11px] text-slate-700 whitespace-pre-line align-top font-bold">
+                               <td className={`p-4 border text-[11px] text-slate-700 whitespace-pre-line align-top font-bold ${cpColor.rowBg}`}>
                                   {tks.map((tk, i) => `${i + 1}. ${tk.content}`).join('\n')}
                                 </td>
-                               <td className="p-4 border text-[11px] text-blue-600 font-black whitespace-pre-line align-top">
+                               <td className={`p-4 border text-[11px] text-blue-600 font-black whitespace-pre-line align-top ${cpColor.rowBg}`}>
                                   {tks.filter(tk => tk.status !== TaskStatus.DONE).map((tk, i) => `${i + 1}. ${tk.content}`).join('\n') || "-"}
                                </td>
                             </tr>
