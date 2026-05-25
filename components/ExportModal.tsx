@@ -26,7 +26,9 @@ const ExportModal: React.FC<ExportModalProps> = ({ tasks, subordinateTasks, temp
     const baseTasks = mergeSubordinateTasks ? [...tasks, ...(subordinateTasks || [])] : tasks;
     return baseTasks.filter(t => {
       const taskDate = t.createdAt.split('T')[0];
-      return taskDate >= startDate && taskDate <= endDate;
+      const isDateInRange = taskDate >= startDate && taskDate <= endDate;
+      const isInProgress = t.status !== TaskStatus.DONE;
+      return isDateInRange || isInProgress;
     });
   }, [tasks, subordinateTasks, startDate, endDate, mergeSubordinateTasks]);
 
