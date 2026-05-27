@@ -66,9 +66,16 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, language, onStatusChange, onC
           }`}>
             {task.company}
           </span>
-          <span className="text-[10px] text-slate-400 font-bold uppercase tracking-tight ml-auto">
-            <i className="far fa-clock mr-1"></i> {formattedDate} - {formattedTime}
-          </span>
+          <div className="flex flex-col items-end ml-auto gap-1">
+            {task.deadline && (
+              <span className={`text-[10px] font-black uppercase tracking-tight ${task.isPriority && !isDone ? 'text-rose-600 dark:text-rose-400' : 'text-blue-500 dark:text-blue-400'}`}>
+                <i className="far fa-calendar-alt mr-1"></i> Hạn: {new Date(task.deadline).toLocaleDateString(language, { day: '2-digit', month: '2-digit', year: 'numeric' })}
+              </span>
+            )}
+            <span className="text-[9px] text-slate-400 font-bold uppercase tracking-tight">
+              <i className="far fa-clock mr-1"></i> {formattedDate} - {formattedTime}
+            </span>
+          </div>
         </div>
         {isEditing ? (
           <div className="w-full flex flex-col gap-2 mt-1">
