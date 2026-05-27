@@ -137,7 +137,15 @@ const Sidebar: React.FC<SidebarProps> = ({
                     </button>
                   )}
                 </div>
-                <input type="date" value={deadline} onChange={e => setDeadline(e.target.value)} className="w-full p-4 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none text-slate-800 dark:text-white font-medium text-sm focus:ring-2 focus:ring-blue-500/20 transition-all" />
+                <input 
+                  type={deadline ? "date" : "text"} 
+                  placeholder="Deadline"
+                  onFocus={(e) => (e.target.type = "date")}
+                  onBlur={(e) => { if (!e.target.value) e.target.type = "text"; }}
+                  value={deadline} 
+                  onChange={e => setDeadline(e.target.value)} 
+                  className="w-full p-4 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none text-slate-800 dark:text-white font-medium text-sm focus:ring-2 focus:ring-blue-500/20 transition-all" 
+                />
               </div>
 
               <div onClick={() => setIsPriority(!isPriority)} className={`flex items-center gap-4 p-4 rounded-2xl border transition-all cursor-pointer ${isPriority ? 'bg-rose-50 dark:bg-rose-950/30 border-rose-200 dark:border-rose-900' : 'bg-slate-50 dark:bg-slate-900 border-slate-100 dark:border-slate-800'}`}>
