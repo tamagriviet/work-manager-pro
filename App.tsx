@@ -195,7 +195,24 @@ const App: React.FC = () => {
       return [];
     }
 
-    return [...baseTasks].sort((a, b) => {
+    const todayDateObj = new Date();
+    todayDateObj.setHours(0, 0, 0, 0);
+
+    const mappedTasks = baseTasks.map(tk => {
+      let isUrgent = tk.isPriority;
+      if (tk.deadline && tk.status !== TaskStatus.DONE) {
+        const deadlineDate = new Date(tk.deadline);
+        deadlineDate.setHours(23, 59, 59, 999);
+        const diffTime = deadlineDate.getTime() - todayDateObj.getTime();
+        const diffDays = diffTime / (1000 * 60 * 60 * 24);
+        if (diffDays <= 3) {
+          isUrgent = true;
+        }
+      }
+      return { ...tk, isPriority: isUrgent };
+    });
+
+    return mappedTasks.sort((a, b) => {
       if (a.isPriority && !b.isPriority) return -1;
       if (!a.isPriority && b.isPriority) return 1;
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
@@ -322,12 +339,12 @@ const App: React.FC = () => {
           departments={state.departments || []}
           language={currentLanguage}
           appLogo={state.settings.appLogo}
-          onAddTask={(content, company, isPriority) => {
+          onAddTask={(content, company, isPriority, deadline) => {
             const generateId = () => {
               if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
               return 'task_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 9);
             };
-            const newTask: Task = { id: generateId(), userId: state.currentUser.id, content, company, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), status: TaskStatus.NOT_STARTED, isPriority };
+            const newTask: Task = { id: generateId(), userId: state.currentUser.id, content, company, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), status: TaskStatus.NOT_STARTED, isPriority, deadline };
             setState(prev => prev ? ({ ...prev, tasks: [newTask, ...prev.tasks] }) : null);
             dispatchAction({ type: 'ADD_TASK', payload: newTask });
           }} 

@@ -39,6 +39,7 @@ export interface Task {
   updatedAt: string;
   status: TaskStatus;
   isPriority: boolean;
+  deadline?: string;
   deletedAt?: string;
 }
 
