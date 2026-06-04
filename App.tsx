@@ -213,6 +213,22 @@ const App: React.FC = () => {
     });
 
     return mappedTasks.sort((a, b) => {
+      const isTodayA = a.createdAt.startsWith(today);
+      const isTodayB = b.createdAt.startsWith(today);
+      
+      const getGroup = (task: typeof a, isToday: boolean) => {
+        if (isToday) return 1;
+        if (task.status !== TaskStatus.DONE) return 2;
+        return 3;
+      };
+
+      const groupA = getGroup(a, isTodayA);
+      const groupB = getGroup(b, isTodayB);
+
+      if (groupA !== groupB) {
+        return groupA - groupB;
+      }
+
       if (a.isPriority && !b.isPriority) return -1;
       if (!a.isPriority && b.isPriority) return 1;
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
