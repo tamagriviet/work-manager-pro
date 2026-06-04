@@ -213,6 +213,10 @@ const App: React.FC = () => {
     });
 
     return mappedTasks.sort((a, b) => {
+      // Ưu tiên cao nhất: Công việc gấp (isPriority) luôn lên đầu
+      if (a.isPriority && !b.isPriority) return -1;
+      if (!a.isPriority && b.isPriority) return 1;
+
       const isTodayA = a.createdAt.startsWith(today);
       const isTodayB = b.createdAt.startsWith(today);
       
@@ -229,8 +233,6 @@ const App: React.FC = () => {
         return groupA - groupB;
       }
 
-      if (a.isPriority && !b.isPriority) return -1;
-      if (!a.isPriority && b.isPriority) return 1;
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
   }, [state, currentView, selectedTeamMember, isRootAdmin, isManagerOfSelected]);
