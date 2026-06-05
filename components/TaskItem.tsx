@@ -9,13 +9,15 @@ interface TaskItemProps {
   language: Language;
   onStatusChange?: (id: string, status: TaskStatus) => void;
   onContentChange?: (id: string, newContent: string) => void;
+  onDeadlineChange?: (id: string, newDeadline?: string) => void;
   onDelete?: (id: string) => void;
   readOnly?: boolean;
 }
 
-const TaskItem: React.FC<TaskItemProps> = ({ task, language, onStatusChange, onContentChange, onDelete, readOnly = false }) => {
+const TaskItem: React.FC<TaskItemProps> = ({ task, language, onStatusChange, onContentChange, onDeadlineChange, onDelete, readOnly = false }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState(task.content);
+  const [editDeadline, setEditDeadline] = useState(task.deadline || '');
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -23,6 +25,25 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, language, onStatusChange, onC
       inputRef.current.focus();
     }
   }, [isEditing]);
+
+  const handleSave = () => {
+    setIsEditing(false);
+    if (editContent.trim() && editContent !== task.content) {
+      onContentChange?.(task.id, editContent.trim());
+    } else {
+      setEditContent(task.content);
+    }
+    const currentDeadline = task.deadline || '';
+    if (editDeadline !== currentDeadline) {
+      onDeadlineChange?.(task.id, editDeadline || undefined);
+    }
+  };
+
+  const handleCancel = () => {
+    setIsEditing(false);
+    setEditContent(task.content);
+    setEditDeadline(task.deadline || '');
+  };
 
   const t = translations[language] || translations.vi;
   const createdAtDate = new Date(task.createdAt);
@@ -86,40 +107,47 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, language, onStatusChange, onC
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
-                  setIsEditing(false);
-                  if (editContent.trim() && editContent !== task.content) {
-                    onContentChange?.(task.id, editContent.trim());
-                  } else {
-                    setEditContent(task.content);
-                  }
+                  handleSave();
                 }
                 if (e.key === 'Escape') {
-                  setIsEditing(false);
-                  setEditContent(task.content);
+                  handleCancel();
                 }
               }}
               className="w-full bg-white dark:bg-slate-900 border border-blue-400 dark:border-blue-600 rounded-xl p-2 md:p-3 text-base md:text-lg font-bold text-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-blue-500/50 resize-none overflow-hidden transition-all"
               rows={2}
             />
-            <div className="flex items-center justify-end gap-2">
+            <div className="flex items-center gap-2 mt-1">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[70px]">Thời hạn:</label>
+              <div className="relative flex-1 flex items-center">
+                <input 
+                  type={editDeadline ? "date" : "text"} 
+                  placeholder="Không có deadline"
+                  onFocus={(e) => (e.target.type = "date")}
+                  onBlur={(e) => { if (!e.target.value) e.target.type = "text"; }}
+                  value={editDeadline} 
+                  onChange={e => setEditDeadline(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleSave();
+                    if (e.key === 'Escape') handleCancel();
+                  }}
+                  className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg outline-none text-xs font-bold text-slate-800 dark:text-white focus:ring-2 focus:ring-blue-500/50 transition-all pr-10" 
+                />
+                {editDeadline && (
+                  <button type="button" onClick={() => setEditDeadline('')} className="absolute right-2 text-[10px] font-black text-rose-500 hover:text-rose-600 uppercase tracking-widest px-2 py-1 rounded hover:bg-rose-50 dark:hover:bg-rose-900/30 transition-colors">
+                    Xóa
+                  </button>
+                )}
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-2 mt-2">
               <button
-                onClick={() => {
-                  setIsEditing(false);
-                  setEditContent(task.content);
-                }}
+                onClick={handleCancel}
                 className="px-4 py-1.5 rounded-lg text-sm font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
               >
                 Hủy
               </button>
               <button
-                onClick={() => {
-                  setIsEditing(false);
-                  if (editContent.trim() && editContent !== task.content) {
-                    onContentChange?.(task.id, editContent.trim());
-                  } else {
-                    setEditContent(task.content);
-                  }
-                }}
+                onClick={handleSave}
                 className="px-4 py-1.5 rounded-lg text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-sm transition-colors"
               >
                 Lưu
@@ -133,7 +161,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, language, onStatusChange, onC
             </p>
             {!readOnly && !isDone && (
               <button 
-                onClick={() => { setIsEditing(true); setEditContent(task.content); }}
+                onClick={() => { setIsEditing(true); setEditContent(task.content); setEditDeadline(task.deadline || ''); }}
                 className="opacity-0 group-hover/edit:opacity-100 transition-opacity w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900 flex items-center justify-center shrink-0"
                 title="Chỉnh sửa công việc"
               >

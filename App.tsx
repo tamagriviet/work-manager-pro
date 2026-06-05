@@ -524,6 +524,11 @@ const App: React.FC = () => {
                               setState(p => p ? ({...p, tasks: p.tasks.map(t => t.id === id ? {...t, content, updatedAt} : t)}) : null);
                               dispatchAction({ type: 'UPDATE_TASK_CONTENT', payload: { id, content, updatedAt } });
                             }}
+                            onDeadlineChange={(id, deadline) => {
+                              const updatedAt = new Date().toISOString();
+                              setState(p => p ? ({...p, tasks: p.tasks.map(t => t.id === id ? {...t, deadline, updatedAt} : t)}) : null);
+                              dispatchAction({ type: 'UPDATE_TASK_DEADLINE', payload: { id, deadline, updatedAt } });
+                            }}
                             onDelete={handleDeleteTask} 
                           />
                         ))
