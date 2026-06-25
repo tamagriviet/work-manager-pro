@@ -93,6 +93,11 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, language, onStatusChange, onC
                 <i className="far fa-calendar-alt mr-1"></i> Hạn: {new Date(task.deadline).toLocaleDateString(language, { day: '2-digit', month: '2-digit', year: 'numeric' })}
               </span>
             )}
+            {isDone && (
+              <span className="text-[10px] font-black uppercase tracking-tight text-emerald-600 dark:text-emerald-400">
+                <i className="fas fa-check-double mr-1"></i> Hoàn thành: {new Date(task.updatedAt).toLocaleDateString(language, { day: '2-digit', month: '2-digit', year: 'numeric' })} - {new Date(task.updatedAt).toLocaleTimeString(language, { hour: '2-digit', minute: '2-digit' })}
+              </span>
+            )}
             <span className="text-[9px] text-slate-400 font-bold uppercase tracking-tight">
               <i className="far fa-clock mr-1"></i> {formattedDate} - {formattedTime}
             </span>

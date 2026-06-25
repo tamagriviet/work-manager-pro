@@ -77,6 +77,8 @@ declare global {
       onUpdateDownloaded: (callback: (info: any) => void) => void;
       onDownloadProgress: (callback: (progressObj: any) => void) => void;
       quitAndInstall: () => void;
+      setAutostart: (enable: boolean) => Promise<boolean>;
+      getAutostart: () => Promise<boolean>;
     };
   }
 }

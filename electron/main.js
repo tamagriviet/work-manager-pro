@@ -82,6 +82,18 @@ app.whenReady().then(() => {
     autoUpdater.quitAndInstall();
   });
 
+  ipcMain.handle('set-autostart', (event, enable) => {
+    app.setLoginItemSettings({
+      openAtLogin: enable,
+      path: app.getPath('exe')
+    });
+    return app.getLoginItemSettings().openAtLogin;
+  });
+
+  ipcMain.handle('get-autostart', () => {
+    return app.getLoginItemSettings().openAtLogin;
+  });
+
   // Kiểm tra cập nhật ngầm
   autoUpdater.checkForUpdatesAndNotify();
 });

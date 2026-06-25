@@ -11,6 +11,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
+  const [autostart, setAutostart] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [appLogo, setAppLogo] = useState<string | null>(null);
@@ -50,10 +51,24 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
         }
       })
       .catch(err => console.error("Could not load settings:", err));
+
+    if (window.electronAPI && window.electronAPI.getAutostart) {
+      window.electronAPI.getAutostart().then((enabled) => {
+        setAutostart(enabled);
+      }).catch(console.error);
+    }
   }, []);
   
   const [showSettings, setShowSettings] = useState(false);
   const [tempUrl, setTempUrl] = useState(getServerUrl());
+
+  const handleAutostartChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const isChecked = e.target.checked;
+    setAutostart(isChecked);
+    if (window.electronAPI && window.electronAPI.setAutostart) {
+      window.electronAPI.setAutostart(isChecked).catch(console.error);
+    }
+  };
 
   const handleSaveSettings = (e: React.FormEvent) => {
     e.preventDefault();
@@ -176,17 +191,32 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
             />
           </div>
 
-          <div className="flex items-center gap-2 px-1">
-            <input 
-              type="checkbox" 
-              id="rememberMe" 
-              checked={rememberMe} 
-              onChange={(e) => setRememberMe(e.target.checked)} 
-              className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500 cursor-pointer"
-            />
-            <label htmlFor="rememberMe" className="text-[10px] font-black text-slate-400 uppercase tracking-widest cursor-pointer select-none">
-              Ghi nhớ đăng nhập
-            </label>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 px-1 mt-2 md:mt-4">
+            <div className="flex items-center gap-2">
+              <input 
+                type="checkbox" 
+                id="rememberMe" 
+                checked={rememberMe} 
+                onChange={(e) => setRememberMe(e.target.checked)} 
+                className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500 cursor-pointer"
+              />
+              <label htmlFor="rememberMe" className="text-[10px] font-black text-slate-400 uppercase tracking-widest cursor-pointer select-none">
+                Ghi nhớ đăng nhập
+              </label>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <input 
+                type="checkbox" 
+                id="autostart" 
+                checked={autostart} 
+                onChange={handleAutostartChange} 
+                className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500 cursor-pointer"
+              />
+              <label htmlFor="autostart" className="text-[10px] font-black text-slate-400 uppercase tracking-widest cursor-pointer select-none">
+                Khởi động cùng Windows
+              </label>
+            </div>
           </div>
 
           <button
