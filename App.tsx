@@ -15,6 +15,7 @@ import { Task, TaskStatus, AppState, User, UserRole, Language, Theme } from './t
 import { loadStateSecure } from './services/storageService';
 import { translations } from './translations';
 import { initSocket, broadcastState, getSocket, dispatchAction } from './services/socketService';
+import { showNotification } from './services/notificationService';
 
 const App: React.FC = () => {
   const [state, setState] = useState<AppState | null>(null);
@@ -162,6 +163,62 @@ const App: React.FC = () => {
     }
   }, [state?.users, state?.departments]);
 
+  useEffect(() => {
+    if (!state || !state.currentUser) return;
+
+    const checkNotifications = () => {
+      const now = new Date();
+      const todayString = now.toLocaleDateString('vi-VN');
+      const hours = now.getHours();
+
+      const incompleteTasks = (state.tasks || []).filter(tk => 
+        tk.userId === state.currentUser!.id && 
+        !tk.deletedAt && 
+        tk.status !== TaskStatus.DONE
+      );
+
+      // 1. Thông báo 15h chiều (3h PM)
+      if (hours >= 15) {
+        const lastDailyNotify = localStorage.getItem('last_daily_notify');
+        if (lastDailyNotify !== todayString && incompleteTasks.length > 0) {
+          showNotification(
+            'Công việc chưa hoàn thành', 
+            `Bạn hiện có ${incompleteTasks.length} công việc chưa hoàn thành trong ngày hôm nay.`, 
+            1001
+          );
+          localStorage.setItem('last_daily_notify', todayString);
+        }
+      }
+
+      // 2. Thông báo việc tạo 2 ngày chưa xong
+      incompleteTasks.forEach(tk => {
+        const createdDate = new Date(tk.createdAt);
+        const diffTime = now.getTime() - createdDate.getTime();
+        const diffDays = diffTime / (1000 * 60 * 60 * 24);
+
+        if (diffDays >= 2) {
+          const lastTaskNotify = localStorage.getItem(`notify_task_${tk.id}`);
+          if (lastTaskNotify !== todayString) {
+            // Generate a simple numeric ID for Capacitor
+            let numId = parseInt(tk.id.replace(/\D/g, '').substring(0, 8));
+            if (isNaN(numId)) numId = Math.floor(Math.random() * 1000000);
+            
+            showNotification(
+              'Công việc quá hạn', 
+              `Công việc "${tk.content}" tạo 2 ngày chưa xong. Hãy hoàn thành ngay nhé!`, 
+              numId
+            );
+            localStorage.setItem(`notify_task_${tk.id}`, todayString);
+          }
+        }
+      });
+    };
+
+    checkNotifications();
+    const interval = setInterval(checkNotifications, 60000); // Check every minute
+    return () => clearInterval(interval);
+  }, [state?.tasks, state?.currentUser]);
+
   const directSubordinates = useMemo(() => {
     if (!state) return [];
     return state.users.filter(u => u.reportsTo === state.currentUser.id);
@@ -239,7 +296,10 @@ const App: React.FC = () => {
         return groupA - groupB;
       }
 
-      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      const timeA = a.status === TaskStatus.DONE ? new Date(a.updatedAt).getTime() : new Date(a.createdAt).getTime();
+      const timeB = b.status === TaskStatus.DONE ? new Date(b.updatedAt).getTime() : new Date(b.createdAt).getTime();
+
+      return timeB - timeA;
     });
   }, [state, currentView, selectedTeamMember, isRootAdmin, isManagerOfSelected]);
 
