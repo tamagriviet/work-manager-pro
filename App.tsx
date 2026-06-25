@@ -209,6 +209,12 @@ const App: React.FC = () => {
           isUrgent = true;
         }
       }
+
+      // Công việc đã hoàn thành, qua ngày hôm sau sẽ không còn ghim trên đầu
+      if (tk.status === TaskStatus.DONE && !tk.updatedAt.startsWith(today)) {
+        isUrgent = false;
+      }
+
       return { ...tk, isPriority: isUrgent };
     });
 
