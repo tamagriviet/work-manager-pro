@@ -118,14 +118,18 @@ async function startServer() {
 
 
   // --- API Sync (Robust HTTP Dispatch) ---
+  let dispatchLock = Promise.resolve();
+
   app.post('/api/dispatch', async (req, res) => {
     const action = req.body;
     if (!action || !action.type) {
       return res.status(400).json({ success: false });
     }
     
-    const db = await getDb();
-    switch (action.type) {
+    dispatchLock = dispatchLock.then(async () => {
+      try {
+        const db = await getDb();
+        switch (action.type) {
       case 'ADD_TASK':
         if (!db.tasks.find((t: any) => t.id === action.payload.id)) {
           db.tasks.unshift(action.payload);
@@ -133,6 +137,9 @@ async function startServer() {
         break;
       case 'UPDATE_TASK_STATUS':
         db.tasks = db.tasks.map((t: any) => t.id === action.payload.id ? { ...t, status: action.payload.status, updatedAt: action.payload.updatedAt } : t);
+        break;
+      case 'UPDATE_TASK_NOTES':
+        db.tasks = db.tasks.map((t: any) => t.id === action.payload.id ? { ...t, notes: action.payload.notes, updatedAt: action.payload.updatedAt } : t);
         break;
       case 'UPDATE_TASK_CONTENT':
         db.tasks = db.tasks.map((t: any) => t.id === action.payload.id ? { ...t, content: action.payload.content, updatedAt: action.payload.updatedAt } : t);
@@ -186,10 +193,15 @@ async function startServer() {
       case 'DELETE_TEMPLATE':
         db.templates = (db.templates || []).filter((t: any) => t.id !== action.payload.id);
         break;
-    }
-    await saveDb(db);
-    io.emit('state-updated', db);
-    res.json({ success: true, db });
+        }
+        await saveDb(db);
+        io.emit('state-updated', db);
+        res.json({ success: true, db });
+      } catch (err) {
+        console.error('Dispatch error:', err);
+        res.status(500).json({ success: false });
+      }
+    });
   });
 
   // --- WebSockets ---
@@ -198,71 +210,80 @@ async function startServer() {
     console.log('Client connected:', socket.id);
 
     socket.on('dispatch', async (action) => {
-      const db = await getDb();
-      switch (action.type) {
-        case 'ADD_TASK':
-          if (!db.tasks.find((t: any) => t.id === action.payload.id)) {
-            db.tasks.unshift(action.payload);
+      dispatchLock = dispatchLock.then(async () => {
+        try {
+          const db = await getDb();
+          switch (action.type) {
+            case 'ADD_TASK':
+              if (!db.tasks.find((t: any) => t.id === action.payload.id)) {
+                db.tasks.unshift(action.payload);
+              }
+              break;
+            case 'UPDATE_TASK_STATUS':
+              db.tasks = db.tasks.map((t: any) => t.id === action.payload.id ? { ...t, status: action.payload.status, updatedAt: action.payload.updatedAt } : t);
+              break;
+            case 'UPDATE_TASK_NOTES':
+              db.tasks = db.tasks.map((t: any) => t.id === action.payload.id ? { ...t, notes: action.payload.notes, updatedAt: action.payload.updatedAt } : t);
+              break;
+            case 'UPDATE_TASK_CONTENT':
+              db.tasks = db.tasks.map((t: any) => t.id === action.payload.id ? { ...t, content: action.payload.content, updatedAt: action.payload.updatedAt } : t);
+              break;
+            case 'UPDATE_TASK_DEADLINE':
+              db.tasks = db.tasks.map((t: any) => t.id === action.payload.id ? { ...t, deadline: action.payload.deadline, updatedAt: action.payload.updatedAt } : t);
+              break;
+            case 'DELETE_TASK':
+              db.tasks = db.tasks.map((t: any) => t.id === action.payload.id ? { ...t, deletedAt: action.payload.deletedAt } : t);
+              break;
+            case 'UPDATE_USER_COMPANIES':
+              db.users = db.users.map((u: any) => u.id === action.payload.id ? { ...u, companies: action.payload.companies } : u);
+              break;
+            case 'UPDATE_USER_PASSWORD':
+              db.users = db.users.map((u: any) => u.id === action.payload.id ? { ...u, password: action.payload.password } : u);
+              break;
+            case 'ADD_DEPARTMENT':
+              if (!(db.departments || []).find((d: any) => d.id === action.payload.id)) {
+                db.departments = [...(db.departments || []), action.payload];
+              }
+              break;
+            case 'UPDATE_DEPARTMENT':
+              db.departments = (db.departments || []).map((d: any) => d.id === action.payload.id ? { ...d, name: action.payload.name } : d);
+              break;
+            case 'DELETE_DEPARTMENT':
+              db.departments = (db.departments || []).filter((d: any) => d.id !== action.payload.id);
+              db.users = db.users.map((u: any) => u.departmentId === action.payload.id ? { ...u, departmentId: undefined } : u);
+              break;
+            case 'ADD_USER':
+              if (!db.users.find((u: any) => u.id === action.payload.id)) {
+                db.users.push(action.payload);
+              }
+              break;
+            case 'UPDATE_USER':
+              db.users = db.users.map((u: any) => u.id === action.payload.id ? action.payload : u);
+              break;
+            case 'DELETE_USER':
+              db.users = db.users.filter((u: any) => u.id !== action.payload.id);
+              break;
+            case 'SETUP_USER':
+              db.users = db.users.map((u: any) => u.id === action.payload.id ? { ...u, fullName: action.payload.fullName, jobTitle: action.payload.jobTitle, companies: action.payload.companies } : u);
+              break;
+            case 'UPDATE_SETTINGS':
+              db.settings = action.payload;
+              break;
+            case 'ADD_TEMPLATE':
+              if (!(db.templates || []).find((t: any) => t.id === action.payload.id)) {
+                db.templates = [...(db.templates || []), action.payload];
+              }
+              break;
+            case 'DELETE_TEMPLATE':
+              db.templates = (db.templates || []).filter((t: any) => t.id !== action.payload.id);
+              break;
           }
-          break;
-        case 'UPDATE_TASK_STATUS':
-          db.tasks = db.tasks.map((t: any) => t.id === action.payload.id ? { ...t, status: action.payload.status, updatedAt: action.payload.updatedAt } : t);
-          break;
-        case 'UPDATE_TASK_CONTENT':
-          db.tasks = db.tasks.map((t: any) => t.id === action.payload.id ? { ...t, content: action.payload.content, updatedAt: action.payload.updatedAt } : t);
-          break;
-        case 'UPDATE_TASK_DEADLINE':
-          db.tasks = db.tasks.map((t: any) => t.id === action.payload.id ? { ...t, deadline: action.payload.deadline, updatedAt: action.payload.updatedAt } : t);
-          break;
-        case 'DELETE_TASK':
-          db.tasks = db.tasks.map((t: any) => t.id === action.payload.id ? { ...t, deletedAt: action.payload.deletedAt } : t);
-          break;
-        case 'UPDATE_USER_COMPANIES':
-          db.users = db.users.map((u: any) => u.id === action.payload.id ? { ...u, companies: action.payload.companies } : u);
-          break;
-        case 'UPDATE_USER_PASSWORD':
-          db.users = db.users.map((u: any) => u.id === action.payload.id ? { ...u, password: action.payload.password } : u);
-          break;
-        case 'ADD_DEPARTMENT':
-          if (!(db.departments || []).find((d: any) => d.id === action.payload.id)) {
-            db.departments = [...(db.departments || []), action.payload];
-          }
-          break;
-        case 'UPDATE_DEPARTMENT':
-          db.departments = (db.departments || []).map((d: any) => d.id === action.payload.id ? { ...d, name: action.payload.name } : d);
-          break;
-        case 'DELETE_DEPARTMENT':
-          db.departments = (db.departments || []).filter((d: any) => d.id !== action.payload.id);
-          db.users = db.users.map((u: any) => u.departmentId === action.payload.id ? { ...u, departmentId: undefined } : u);
-          break;
-        case 'ADD_USER':
-          if (!db.users.find((u: any) => u.id === action.payload.id)) {
-            db.users.push(action.payload);
-          }
-          break;
-        case 'UPDATE_USER':
-          db.users = db.users.map((u: any) => u.id === action.payload.id ? action.payload : u);
-          break;
-        case 'DELETE_USER':
-          db.users = db.users.filter((u: any) => u.id !== action.payload.id);
-          break;
-        case 'SETUP_USER':
-          db.users = db.users.map((u: any) => u.id === action.payload.id ? { ...u, fullName: action.payload.fullName, jobTitle: action.payload.jobTitle, companies: action.payload.companies } : u);
-          break;
-        case 'UPDATE_SETTINGS':
-          db.settings = action.payload;
-          break;
-        case 'ADD_TEMPLATE':
-          if (!(db.templates || []).find((t: any) => t.id === action.payload.id)) {
-            db.templates = [...(db.templates || []), action.payload];
-          }
-          break;
-        case 'DELETE_TEMPLATE':
-          db.templates = (db.templates || []).filter((t: any) => t.id !== action.payload.id);
-          break;
-      }
-      await saveDb(db);
-      io.emit('state-updated', db);
+          await saveDb(db);
+          io.emit('state-updated', db);
+        } catch (err) {
+          console.error('Socket dispatch error:', err);
+        }
+      });
     });
 
     socket.on('user-login', (userId) => {

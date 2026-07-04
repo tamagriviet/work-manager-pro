@@ -41,6 +41,7 @@ export interface Task {
   isPriority: boolean;
   deadline?: string;
   deletedAt?: string;
+  notes?: string;
 }
 
 export interface ReportTemplate {

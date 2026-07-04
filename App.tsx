@@ -423,12 +423,12 @@ const App: React.FC = () => {
           departments={state.departments || []}
           language={currentLanguage}
           appLogo={state.settings.appLogo}
-          onAddTask={(content, company, isPriority, deadline) => {
+          onAddTask={(content, company, isPriority, deadline, notes) => {
             const generateId = () => {
               if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
               return 'task_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 9);
             };
-            const newTask: Task = { id: generateId(), userId: state.currentUser.id, content, company, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), status: TaskStatus.NOT_STARTED, isPriority, deadline };
+            const newTask: Task = { id: generateId(), userId: state.currentUser.id, content, company, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), status: TaskStatus.NOT_STARTED, isPriority, deadline, notes };
             setState(prev => prev ? ({ ...prev, tasks: [newTask, ...prev.tasks] }) : null);
             dispatchAction({ type: 'ADD_TASK', payload: newTask });
           }} 
@@ -539,7 +539,7 @@ const App: React.FC = () => {
               </header>
 
               <div className="flex-1 overflow-y-auto p-4 md:p-10 custom-scrollbar relative">
-                <div className="max-w-6xl mx-auto pb-24">
+                <div className="w-full pb-24">
                   {currentView === 'TEAM' && !selectedTeamMember ? (
                     <TeamSummary 
                       subordinates={directSubordinates}
@@ -549,7 +549,7 @@ const App: React.FC = () => {
                       isDrillDownEnabled={true}
                     />
                   ) : (
-                    <div className="max-w-4xl mx-auto space-y-4">
+                    <div className="w-full max-w-none">
                       {selectedTeamMember && (
                         <div className="mb-6 flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
                           <div className="flex items-center gap-3">
@@ -574,30 +574,67 @@ const App: React.FC = () => {
                           {t.noTasks}
                         </div>
                       ) : (
-                        filteredTasks.map(task => (
-                          <TaskItem 
-                            key={task.id} 
-                            task={task} 
-                            language={currentLanguage} 
-                            readOnly={currentView === 'TEAM'}
-                            onStatusChange={(id, status) => {
-                              const updatedAt = new Date().toISOString();
-                              setState(p => p ? ({...p, tasks: p.tasks.map(t => t.id === id ? {...t, status, updatedAt} : t)}) : null);
-                              dispatchAction({ type: 'UPDATE_TASK_STATUS', payload: { id, status, updatedAt } });
-                            }}
-                            onContentChange={(id, content) => {
-                              const updatedAt = new Date().toISOString();
-                              setState(p => p ? ({...p, tasks: p.tasks.map(t => t.id === id ? {...t, content, updatedAt} : t)}) : null);
-                              dispatchAction({ type: 'UPDATE_TASK_CONTENT', payload: { id, content, updatedAt } });
-                            }}
-                            onDeadlineChange={(id, deadline) => {
-                              const updatedAt = new Date().toISOString();
-                              setState(p => p ? ({...p, tasks: p.tasks.map(t => t.id === id ? {...t, deadline, updatedAt} : t)}) : null);
-                              dispatchAction({ type: 'UPDATE_TASK_DEADLINE', payload: { id, deadline, updatedAt } });
-                            }}
-                            onDelete={handleDeleteTask} 
-                          />
-                        ))
+                        <div className="flex flex-wrap gap-4 md:gap-6 items-start mt-4">
+                          {(() => {
+                            let lastDateStr = '';
+                            return filteredTasks.map(task => {
+                              const isDone = task.status === TaskStatus.DONE;
+                              let separator = null;
+                              
+                              if (isDone) {
+                                const taskDate = new Date(task.updatedAt);
+                                const dateStr = taskDate.toLocaleDateString(currentLanguage, { day: '2-digit', month: '2-digit', year: 'numeric' });
+                                
+                                if (dateStr !== lastDateStr) {
+                                  lastDateStr = dateStr;
+                                  separator = (
+                                    <div key={`sep-${dateStr}`} className="w-full flex items-center my-4 md:my-6">
+                                       <div className="flex-1 border-t-2 border-slate-300 dark:border-slate-700"></div>
+                                       <div className="px-6 text-[10px] md:text-xs font-black text-slate-500 uppercase tracking-[0.2em] bg-slate-100 dark:bg-slate-900 rounded-full border-2 border-slate-200 dark:border-slate-800 py-1.5 md:py-2 mx-4 shadow-sm">
+                                         {dateStr}
+                                       </div>
+                                       <div className="flex-1 border-t-2 border-slate-300 dark:border-slate-700"></div>
+                                    </div>
+                                  );
+                                }
+                              }
+
+                              return (
+                                <React.Fragment key={task.id}>
+                                  {separator}
+                                  <div className="w-full sm:w-[340px] md:w-[360px] lg:w-[380px] shrink-0">
+                                    <TaskItem 
+                                      task={task} 
+                                      language={currentLanguage} 
+                                      readOnly={currentView === 'TEAM'}
+                                      onStatusChange={(id, status) => {
+                                        const updatedAt = new Date().toISOString();
+                                        setState(p => p ? ({...p, tasks: p.tasks.map(t => t.id === id ? {...t, status, updatedAt} : t)}) : null);
+                                        dispatchAction({ type: 'UPDATE_TASK_STATUS', payload: { id, status, updatedAt } });
+                                      }}
+                                      onContentChange={(id, content) => {
+                                        const updatedAt = new Date().toISOString();
+                                        setState(p => p ? ({...p, tasks: p.tasks.map(t => t.id === id ? {...t, content, updatedAt} : t)}) : null);
+                                        dispatchAction({ type: 'UPDATE_TASK_CONTENT', payload: { id, content, updatedAt } });
+                                      }}
+                                      onDeadlineChange={(id, deadline) => {
+                                        const updatedAt = new Date().toISOString();
+                                        setState(p => p ? ({...p, tasks: p.tasks.map(t => t.id === id ? {...t, deadline, updatedAt} : t)}) : null);
+                                        dispatchAction({ type: 'UPDATE_TASK_DEADLINE', payload: { id, deadline, updatedAt } });
+                                      }}
+                                      onNotesChange={(id, notes) => {
+                                        const updatedAt = new Date().toISOString();
+                                        setState(p => p ? ({...p, tasks: p.tasks.map(t => t.id === id ? {...t, notes, updatedAt} : t)}) : null);
+                                        dispatchAction({ type: 'UPDATE_TASK_NOTES', payload: { id, notes, updatedAt } });
+                                      }}
+                                      onDelete={handleDeleteTask} 
+                                    />
+                                  </div>
+                                </React.Fragment>
+                              );
+                            });
+                          })()}
+                        </div>
                       )}
                     </div>
                   )}

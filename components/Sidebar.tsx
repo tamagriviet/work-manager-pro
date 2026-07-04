@@ -12,7 +12,7 @@ interface SidebarProps {
   departments?: Department[];
   language: Language;
   appLogo?: string;
-  onAddTask: (content: string, company: string, isPriority: boolean, deadline?: string) => void;
+  onAddTask: (content: string, company: string, isPriority: boolean, deadline?: string, notes?: string) => void;
   onAddCompany: (company: string) => void;
   onOpenManageCompanies: () => void;
   onClearAll: () => void;
@@ -31,6 +31,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   const [selectedCompany, setSelectedCompany] = useState(companies[0] || '');
   const [isPriority, setIsPriority] = useState(false);
   const [deadline, setDeadline] = useState('');
+  const [notes, setNotes] = useState('');
   const [newDeptName, setNewDeptName] = useState('');
   
   const t = translations[language] || translations.vi;
@@ -39,14 +40,15 @@ const Sidebar: React.FC<SidebarProps> = ({
   const handleSubmitTask = (e: React.FormEvent) => {
     e.preventDefault();
     if (!content.trim() || !selectedCompany) return;
-    onAddTask(content, selectedCompany, isPriority, deadline ? deadline : undefined);
+    onAddTask(content, selectedCompany, isPriority, deadline ? deadline : undefined, notes.trim() ? notes.trim() : undefined);
     setContent('');
     setIsPriority(false);
     setDeadline('');
+    setNotes('');
   };
 
   return (
-      <div className={`w-full md:w-[380px] bg-white dark:bg-slate-950 flex-1 md:h-full flex flex-col p-6 md:p-10 flex-shrink-0 border-b md:border-b-0 md:border-r border-slate-100 dark:border-slate-800 shadow-sm md:shadow-none overflow-y-auto custom-scrollbar transition-colors ${isRootAdmin ? 'hidden md:flex' : ''}`}>
+      <div className={`w-full md:w-[570px] bg-white dark:bg-slate-950 flex-1 md:flex-none md:h-full flex flex-col p-6 md:p-10 flex-shrink-0 border-b md:border-b-0 md:border-r border-slate-100 dark:border-slate-800 shadow-sm md:shadow-none overflow-y-auto custom-scrollbar transition-colors ${isRootAdmin ? 'hidden md:flex' : ''}`}>
 
         <div className="mb-10 flex items-center justify-between">
           <div className="flex items-center gap-3 md:gap-4">
@@ -126,6 +128,11 @@ const Sidebar: React.FC<SidebarProps> = ({
               <div className="space-y-2">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">{t.taskContent}</label>
                 <textarea value={content} onChange={(e) => setContent(e.target.value)} placeholder={t.placeholderContent} className="w-full p-5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none h-32 resize-none text-slate-800 dark:text-white font-medium text-xs focus:ring-2 focus:ring-blue-500/20" />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Ghi chú</label>
+                <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Ghi chú các nội dung liên quan..." className="w-full p-5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none h-24 resize-none text-slate-800 dark:text-white font-medium text-xs focus:ring-2 focus:ring-blue-500/20" />
               </div>
 
               <div className="space-y-2">

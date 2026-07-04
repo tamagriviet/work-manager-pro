@@ -113,12 +113,14 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ language, theme: initialT
             >
               {t.general}
             </button>
-            <button 
-              onClick={() => setActiveTab('INTERFACE')}
-              className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'INTERFACE' ? 'bg-white dark:bg-slate-900 text-blue-600 shadow-sm' : 'text-slate-400'}`}
-            >
-              Giao Diện
-            </button>
+            {currentUser.role === 'ADMIN' && (
+              <button 
+                onClick={() => setActiveTab('INTERFACE')}
+                className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'INTERFACE' ? 'bg-white dark:bg-slate-900 text-blue-600 shadow-sm' : 'text-slate-400'}`}
+              >
+                Giao Diện
+              </button>
+            )}
             <button 
               onClick={() => setActiveTab('SECURITY')}
               className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'SECURITY' ? 'bg-white dark:bg-slate-900 text-blue-600 shadow-sm' : 'text-slate-400'}`}

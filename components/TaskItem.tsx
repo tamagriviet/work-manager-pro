@@ -10,15 +10,34 @@ interface TaskItemProps {
   onStatusChange?: (id: string, status: TaskStatus) => void;
   onContentChange?: (id: string, newContent: string) => void;
   onDeadlineChange?: (id: string, newDeadline?: string) => void;
+  onNotesChange?: (id: string, newNotes: string) => void;
   onDelete?: (id: string) => void;
   readOnly?: boolean;
 }
 
-const TaskItem: React.FC<TaskItemProps> = ({ task, language, onStatusChange, onContentChange, onDeadlineChange, onDelete, readOnly = false }) => {
+const TaskItem: React.FC<TaskItemProps> = ({ task, language, onStatusChange, onContentChange, onDeadlineChange, onNotesChange, onDelete, readOnly = false }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState(task.content);
   const [editDeadline, setEditDeadline] = useState(task.deadline || '');
+  const [editNotes, setEditNotes] = useState(task.notes || '');
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  
+  const [isNotesExpanded, setIsNotesExpanded] = useState(false);
+  const notesRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (notesRef.current && !notesRef.current.contains(event.target as Node)) {
+        setIsNotesExpanded(false);
+      }
+    };
+    if (isNotesExpanded) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isNotesExpanded]);
 
   useEffect(() => {
     if (isEditing && inputRef.current) {
@@ -37,12 +56,19 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, language, onStatusChange, onC
     if (editDeadline !== currentDeadline) {
       onDeadlineChange?.(task.id, editDeadline || undefined);
     }
+    const currentNotes = task.notes || '';
+    if (editNotes.trim() !== currentNotes.trim()) {
+      onNotesChange?.(task.id, editNotes.trim());
+    } else {
+      setEditNotes(task.notes || '');
+    }
   };
 
   const handleCancel = () => {
     setIsEditing(false);
     setEditContent(task.content);
     setEditDeadline(task.deadline || '');
+    setEditNotes(task.notes || '');
   };
 
   const t = translations[language] || translations.vi;
@@ -118,8 +144,8 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, language, onStatusChange, onC
                   handleCancel();
                 }
               }}
-              className="w-full bg-white dark:bg-slate-900 border border-blue-400 dark:border-blue-600 rounded-xl p-2 md:p-3 text-base md:text-lg font-bold text-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-blue-500/50 resize-none overflow-hidden transition-all"
-              rows={2}
+              className="w-full bg-white dark:bg-slate-900 border border-blue-400 dark:border-blue-600 rounded-xl p-2 md:p-3 text-base md:text-lg font-bold text-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-blue-500/50 resize-none overflow-y-auto custom-scrollbar transition-all"
+              rows={3}
             />
             <div className="flex items-center gap-2 mt-1">
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[70px]">Thời hạn:</label>
@@ -144,6 +170,19 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, language, onStatusChange, onC
                 )}
               </div>
             </div>
+            <div className="flex items-start gap-2 mt-2">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[70px] mt-3">Ghi chú:</label>
+              <textarea
+                value={editNotes}
+                onChange={(e) => setEditNotes(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape') handleCancel();
+                }}
+                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-xs font-medium text-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-blue-500/50 resize-none overflow-y-auto custom-scrollbar transition-all"
+                rows={3}
+                placeholder="Thêm ghi chú..."
+              />
+            </div>
             <div className="flex items-center justify-end gap-2 mt-2">
               <button
                 onClick={handleCancel}
@@ -160,18 +199,29 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, language, onStatusChange, onC
             </div>
           </div>
         ) : (
-          <div className="flex items-start gap-2 group/edit mt-1 w-full">
-            <p className={`flex-1 text-slate-800 dark:text-white font-bold text-base md:text-lg leading-snug break-words ${isDone ? 'line-through opacity-40 text-slate-400' : ''}`}>
-              {task.content}
-            </p>
-            {!readOnly && !isDone && (
-              <button 
-                onClick={() => { setIsEditing(true); setEditContent(task.content); setEditDeadline(task.deadline || ''); }}
-                className="opacity-0 group-hover/edit:opacity-100 transition-opacity w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900 flex items-center justify-center shrink-0"
-                title="Chỉnh sửa công việc"
+          <div className="flex flex-col gap-1 mt-1 w-full">
+            <div className="flex items-start gap-2 group/edit w-full">
+              <p className={`flex-1 text-slate-800 dark:text-white font-bold text-base md:text-lg leading-snug break-words ${isDone ? 'line-through opacity-40 text-slate-400' : ''}`}>
+                {task.content}
+              </p>
+              {!readOnly && !isDone && (
+                <button 
+                  onClick={() => { setIsEditing(true); setEditContent(task.content); setEditDeadline(task.deadline || ''); setEditNotes(task.notes || ''); }}
+                  className="opacity-0 group-hover/edit:opacity-100 transition-opacity w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900 flex items-center justify-center shrink-0"
+                  title="Chỉnh sửa công việc"
+                >
+                  <i className="fas fa-pen text-xs"></i>
+                </button>
+              )}
+            </div>
+            {task.notes && !readOnly && (
+              <div 
+                ref={notesRef}
+                onClick={() => setIsNotesExpanded(true)}
+                className={`text-[11px] text-slate-600 dark:text-slate-400 font-medium whitespace-pre-wrap cursor-pointer transition-all duration-300 ${!isNotesExpanded ? 'line-clamp-2' : ''} ${isDone ? 'opacity-50' : ''}`}
               >
-                <i className="fas fa-pen text-xs"></i>
-              </button>
+                {task.notes}
+              </div>
             )}
           </div>
         )}
