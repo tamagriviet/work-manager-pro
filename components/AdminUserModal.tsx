@@ -173,7 +173,12 @@ const AdminUserModal: React.FC<AdminUserModalProps> = ({ currentUser, users, tas
           <div className="shrink-0 lg:flex-1 p-4 md:p-6 lg:overflow-y-auto custom-scrollbar border-b lg:border-b-0 lg:border-r border-slate-100 dark:border-slate-800 bg-slate-50/30 dark:bg-transparent">
             {!selectedUserForTasks ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {manageableUsers.map(u => (
+                {manageableUsers.map(u => {
+                  const today = new Date().toISOString().split('T')[0];
+                  const userTasks = tasks.filter(tk => tk.userId === u.id && !tk.deletedAt);
+                  const tasksCreatedToday = userTasks.filter(tk => tk.createdAt.startsWith(today)).length;
+                  const tasksCompletedToday = userTasks.filter(tk => tk.status === TaskStatus.DONE && tk.updatedAt.startsWith(today)).length;
+                  return (
                   <div key={u.id} className="group relative flex items-center gap-4 p-5 bg-white dark:bg-slate-800/40 rounded-3xl border border-slate-100 dark:border-slate-800 hover:border-blue-500 hover:shadow-xl transition-all">
                     <div onClick={() => setSelectedUserForTasks(u)} className="cursor-pointer flex-1 flex items-center gap-4">
                       <div className={`w-14 h-14 rounded-2xl flex items-center justify-center font-black text-white shadow-lg ${
@@ -187,13 +192,27 @@ const AdminUserModal: React.FC<AdminUserModalProps> = ({ currentUser, users, tas
                         <div className="flex items-center gap-2 mt-1">
                            <span className="text-[8px] font-black px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-900 text-slate-400 uppercase">{t[`role_${u.role}` as keyof typeof t]}</span>
                         </div>
+                        <div className="flex items-center gap-3 mt-2">
+                           <div className="flex flex-col">
+                              <span className="text-[8px] font-bold text-slate-400 uppercase">Mới</span>
+                              <span className="text-xs font-black text-blue-500">{tasksCreatedToday}</span>
+                           </div>
+                           <div className="flex flex-col border-l border-slate-200 dark:border-slate-700 pl-3">
+                              <span className="text-[8px] font-bold text-slate-400 uppercase">Xong</span>
+                              <span className="text-xs font-black text-emerald-500">{tasksCompletedToday}</span>
+                           </div>
+                           <div className="flex flex-col border-l border-slate-200 dark:border-slate-700 pl-3">
+                              <span className="text-[8px] font-bold text-slate-400 uppercase">Tổng</span>
+                              <span className="text-xs font-black text-slate-600 dark:text-slate-300">{userTasks.length}</span>
+                           </div>
+                        </div>
                       </div>
                     </div>
                     <div className="flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-all">
                       <button onClick={() => setEditingUser(u)} className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 flex items-center justify-center hover:scale-110"><i className="fas fa-edit text-xs"></i></button>
                     </div>
                   </div>
-                ))}
+                )})}
               </div>
             ) : (
               /* Phần xem chi tiết Task của Nhân viên - giữ nguyên logic 30 ngày */

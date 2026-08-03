@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { User, Language, Task, Department } from '../types';
+import { User, Language, Task, Department, TaskStatus } from '../types';
 import { translations } from '../translations';
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 
@@ -208,8 +208,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       EMPLOYEE: 'bg-slate-500 border-slate-200 text-slate-500 shadow-slate-500/10'
     };
     
-    const currentStyle = roleStyles[user.role] || roleStyles.EMPLOYEE;
-    const userTasksCount = tasks.filter(tk => tk.userId === user.id && !tk.deletedAt).length;
+    const today = new Date().toISOString().split('T')[0];
+    const userTasks = tasks.filter(tk => tk.userId === user.id && !tk.deletedAt);
+    const userTasksCount = userTasks.length;
+    const tasksCreatedToday = userTasks.filter(tk => tk.createdAt.startsWith(today)).length;
+    const tasksCompletedToday = userTasks.filter(tk => tk.status === TaskStatus.DONE && tk.updatedAt.startsWith(today)).length;
 
     return (
       <li key={user.id} className="animate-in fade-in zoom-in-95 duration-500">
@@ -226,6 +229,17 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <span className="text-[8px] font-black px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-400 mt-2 inline-block">
                 {t[`role_${user.role}` as keyof typeof t]}
               </span>
+              <div className="flex items-center justify-center gap-3 mt-3">
+                 <div className="flex flex-col items-center">
+                    <span className="text-[8px] font-bold text-slate-400 uppercase">Mới hôm nay</span>
+                    <span className="text-xs font-black text-blue-500">{tasksCreatedToday}</span>
+                 </div>
+                 <div className="h-6 w-px bg-slate-200 dark:bg-slate-700"></div>
+                 <div className="flex flex-col items-center">
+                    <span className="text-[8px] font-bold text-slate-400 uppercase">Hoàn thành</span>
+                    <span className="text-xs font-black text-emerald-500">{tasksCompletedToday}</span>
+                 </div>
+              </div>
             </div>
             
             <div className="flex items-center gap-3 mt-3 w-full justify-center border-t border-slate-50 dark:border-slate-800/50 pt-3">
