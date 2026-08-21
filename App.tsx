@@ -245,7 +245,8 @@ const App: React.FC = () => {
           tk.createdAt.startsWith(today) || 
           (tk.status === TaskStatus.DONE && tk.updatedAt.startsWith(today)) ||
           tk.status === TaskStatus.NOT_STARTED ||
-          tk.status === TaskStatus.IN_PROGRESS
+          tk.status === TaskStatus.IN_PROGRESS ||
+          tk.status === TaskStatus.WAITING_APPROVAL
         )
       );
     } else {
@@ -609,8 +610,21 @@ const App: React.FC = () => {
                                       readOnly={currentView === 'TEAM'}
                                       onStatusChange={(id, status) => {
                                         const updatedAt = new Date().toISOString();
-                                        setState(p => p ? ({...p, tasks: p.tasks.map(t => t.id === id ? {...t, status, updatedAt} : t)}) : null);
-                                        dispatchAction({ type: 'UPDATE_TASK_STATUS', payload: { id, status, updatedAt } });
+                                        setState(p => p ? ({...p, tasks: p.tasks.map(t => {
+                                          if (t.id === id) {
+                                            const updates: any = { status, updatedAt };
+                                            if (status === TaskStatus.WAITING_APPROVAL) {
+                                              updates.waitingApprovalAt = updatedAt;
+                                            }
+                                            return { ...t, ...updates };
+                                          }
+                                          return t;
+                                        })}) : null);
+                                        const payload: any = { id, status, updatedAt };
+                                        if (status === TaskStatus.WAITING_APPROVAL) {
+                                          payload.waitingApprovalAt = updatedAt;
+                                        }
+                                        dispatchAction({ type: 'UPDATE_TASK_STATUS', payload });
                                       }}
                                       onContentChange={(id, content) => {
                                         const updatedAt = new Date().toISOString();

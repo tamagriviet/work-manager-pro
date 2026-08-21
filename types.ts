@@ -2,6 +2,7 @@
 export enum TaskStatus {
   NOT_STARTED = 'NOT_STARTED',
   IN_PROGRESS = 'IN_PROGRESS',
+  WAITING_APPROVAL = 'WAITING_APPROVAL',
   DONE = 'DONE'
 }
 
@@ -42,6 +43,7 @@ export interface Task {
   deadline?: string;
   deletedAt?: string;
   notes?: string;
+  waitingApprovalAt?: string;
 }
 
 export interface ReportTemplate {

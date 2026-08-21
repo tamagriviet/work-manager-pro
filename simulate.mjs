@@ -1,29 +1,41 @@
+import fetch from 'node-fetch';
+
 async function run() {
-  // Login to check state
-  let res = await fetch('http://localhost:3000/api/login', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email: 'tam.agriviet@gmail.com', password: '123456789' })
+  let res = await fetch('http://localhost:45001/api/dispatch', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ type: 'ADD_TASK', payload: { id: "test_task", content: "Test", status: "NOT_STARTED" } })
   });
   let data = await res.json();
-  console.log('Initial departments:', data.state.departments);
-
-  // Dispatch ADD_DEPARTMENT
-  res = await fetch('http://localhost:3000/api/dispatch', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      type: 'ADD_DEPARTMENT',
-      payload: { id: 'test-dept-123', name: 'Test Department', createdAt: new Date().toISOString() }
-    })
+  
+  // Set to WAITING_APPROVAL
+  const payload1 = {
+    id: "test_task",
+    status: "WAITING_APPROVAL",
+    updatedAt: new Date().toISOString(),
+    waitingApprovalAt: new Date().toISOString()
+  };
+  res = await fetch('http://localhost:45001/api/dispatch', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ type: 'UPDATE_TASK_STATUS', payload: payload1 })
   });
   data = await res.json();
-  console.log('After dispatch db.departments:', data.db.departments);
+  console.log("After WAITING_APPROVAL:", data.db.tasks.find(t => t.id === "test_task"));
 
-  // Login again
-  res = await fetch('http://localhost:3000/api/login', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email: 'tam.agriviet@gmail.com', password: '123456789' })
+  // Set back to IN_PROGRESS
+  const payload2 = {
+    id: "test_task",
+    status: "IN_PROGRESS",
+    updatedAt: new Date().toISOString()
+  };
+  res = await fetch('http://localhost:45001/api/dispatch', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ type: 'UPDATE_TASK_STATUS', payload: payload2 })
   });
   data = await res.json();
-  console.log('Final departments from login:', data.state.departments);
+  console.log("After IN_PROGRESS:", data.db.tasks.find(t => t.id === "test_task"));
 }
+
 run();

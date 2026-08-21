@@ -98,6 +98,11 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, language, onStatusChange, onC
               <i className="fas fa-pause-circle text-[8px]"></i> {t.NOT_STARTED}
             </span>
           )}
+          {task.status === TaskStatus.WAITING_APPROVAL && (
+            <span className="flex items-center gap-1.5 text-[8px] md:text-[9px] font-black px-2.5 py-1 rounded-full bg-purple-600 text-white uppercase tracking-widest animate-pulse">
+              <i className="fas fa-hourglass-half text-[8px]"></i> {t.WAITING_APPROVAL}
+            </span>
+          )}
           {isDone && (
             <span className="flex items-center gap-1.5 text-[8px] md:text-[9px] font-black px-2.5 py-1 rounded-full bg-emerald-600 text-white uppercase tracking-widest">
               <i className="fas fa-check-circle text-[8px]"></i> {t.DONE}
@@ -122,6 +127,11 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, language, onStatusChange, onC
             {isDone && (
               <span className="text-[10px] font-black uppercase tracking-tight text-emerald-600 dark:text-emerald-400">
                 <i className="fas fa-check-double mr-1"></i> Hoàn thành: {new Date(task.updatedAt).toLocaleDateString(language, { day: '2-digit', month: '2-digit', year: 'numeric' })} - {new Date(task.updatedAt).toLocaleTimeString(language, { hour: '2-digit', minute: '2-digit' })}
+              </span>
+            )}
+            {task.waitingApprovalAt && (
+              <span className="text-[10px] font-black uppercase tracking-tight text-purple-600 dark:text-purple-400">
+                <i className="fas fa-hourglass-half mr-1"></i> Đợi chốt: {new Date(task.waitingApprovalAt).toLocaleDateString(language, { day: '2-digit', month: '2-digit', year: 'numeric' })} - {new Date(task.waitingApprovalAt).toLocaleTimeString(language, { hour: '2-digit', minute: '2-digit' })}
               </span>
             )}
             <span className="text-[9px] text-slate-400 font-bold uppercase tracking-tight">
@@ -230,8 +240,8 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, language, onStatusChange, onC
       {!readOnly && (
         <div className="flex items-center justify-between w-full mt-2 md:mt-0">
           <div className={`flex flex-wrap sm:flex-nowrap p-1 sm:p-1.5 rounded-[1.2rem] sm:rounded-2xl border bg-white/80 dark:bg-slate-950/80 backdrop-blur-sm ${task.isPriority ? 'border-rose-100 dark:border-rose-900' : cpColor.border + ' dark:border-slate-800'}`}>
-            {/* Hiển thị 3 trạng thái: Chưa làm, Đang làm, Đã xong */}
-            {[TaskStatus.NOT_STARTED, TaskStatus.IN_PROGRESS, TaskStatus.DONE].map((status) => (
+            {/* Hiển thị 4 trạng thái */}
+            {[TaskStatus.NOT_STARTED, TaskStatus.IN_PROGRESS, TaskStatus.WAITING_APPROVAL, TaskStatus.DONE].map((status) => (
               <button
                 key={status}
                 onClick={() => onStatusChange?.(task.id, status)}

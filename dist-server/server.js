@@ -114,7 +114,12 @@ async function startServer() {
             }
             break;
           case "UPDATE_TASK_STATUS":
-            db.tasks = db.tasks.map((t) => t.id === action.payload.id ? { ...t, status: action.payload.status, updatedAt: action.payload.updatedAt } : t);
+            db.tasks = db.tasks.map((t) => t.id === action.payload.id ? {
+              ...t,
+              status: action.payload.status,
+              updatedAt: action.payload.updatedAt,
+              ...action.payload.waitingApprovalAt ? { waitingApprovalAt: action.payload.waitingApprovalAt } : {}
+            } : t);
             break;
           case "UPDATE_TASK_NOTES":
             db.tasks = db.tasks.map((t) => t.id === action.payload.id ? { ...t, notes: action.payload.notes, updatedAt: action.payload.updatedAt } : t);
@@ -194,7 +199,12 @@ async function startServer() {
               }
               break;
             case "UPDATE_TASK_STATUS":
-              db.tasks = db.tasks.map((t) => t.id === action.payload.id ? { ...t, status: action.payload.status, updatedAt: action.payload.updatedAt } : t);
+              db.tasks = db.tasks.map((t) => t.id === action.payload.id ? {
+                ...t,
+                status: action.payload.status,
+                updatedAt: action.payload.updatedAt,
+                ...action.payload.waitingApprovalAt ? { waitingApprovalAt: action.payload.waitingApprovalAt } : {}
+              } : t);
               break;
             case "UPDATE_TASK_NOTES":
               db.tasks = db.tasks.map((t) => t.id === action.payload.id ? { ...t, notes: action.payload.notes, updatedAt: action.payload.updatedAt } : t);
@@ -281,7 +291,7 @@ async function startServer() {
       res.sendFile(path.join(distPath, "index.html"));
     });
   }
-  const PORT = process.env.PORT || 45001;
+  const PORT = Number(process.env.PORT) || 45001;
   httpServer.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running at http://0.0.0.0:${PORT}`);
   });

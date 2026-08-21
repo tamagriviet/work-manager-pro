@@ -208,6 +208,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       EMPLOYEE: 'bg-slate-500 border-slate-200 text-slate-500 shadow-slate-500/10'
     };
     
+    const currentStyle = roleStyles[user.role] || roleStyles['EMPLOYEE'];
+    
     const today = new Date().toISOString().split('T')[0];
     const userTasks = tasks.filter(tk => tk.userId === user.id && !tk.deletedAt);
     const userTasksCount = userTasks.length;

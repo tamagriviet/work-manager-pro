@@ -10,6 +10,7 @@ export const COMPANIES = [
 export const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   NOT_STARTED: { label: 'Chưa làm', color: 'bg-slate-200 text-slate-700' },
   IN_PROGRESS: { label: 'Đang làm', color: 'bg-blue-100 text-blue-700 border border-blue-200' },
+  WAITING_APPROVAL: { label: 'Đợi chốt', color: 'bg-purple-100 text-purple-700 border border-purple-200' },
   DONE: { label: 'Đã xong', color: 'bg-emerald-100 text-emerald-700 border border-emerald-200' }
 };
 

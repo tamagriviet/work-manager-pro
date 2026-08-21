@@ -38,12 +38,12 @@ async function initDb() {
       const db = client.db('workmanager');
       mongoCollection = db.collection('state');
       
-      const remoteState = await mongoCollection.findOne({ _id: 'global-state' });
+      const remoteState = await mongoCollection.findOne({ _id: 'global-state' as any });
       if (remoteState && remoteState.data) {
         dbCache = remoteState.data;
         console.log('Loaded state from MongoDB');
       } else {
-        await mongoCollection.updateOne({ _id: 'global-state' }, { $set: { data: initialData } }, { upsert: true });
+        await mongoCollection.updateOne({ _id: 'global-state' as any }, { $set: { data: initialData } }, { upsert: true });
         dbCache = initialData;
         console.log('Initialized MongoDB with default data');
       }
@@ -68,7 +68,7 @@ const getDb = async () => {
 const saveDb = async (data: any) => {
   dbCache = data;
   if (mongoCollection) {
-    await mongoCollection.updateOne({ _id: 'global-state' }, { $set: { data } }, { upsert: true });
+    await mongoCollection.updateOne({ _id: 'global-state' as any }, { $set: { data } }, { upsert: true });
   } else {
     fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2));
   }
@@ -136,7 +136,12 @@ async function startServer() {
         }
         break;
       case 'UPDATE_TASK_STATUS':
-        db.tasks = db.tasks.map((t: any) => t.id === action.payload.id ? { ...t, status: action.payload.status, updatedAt: action.payload.updatedAt } : t);
+        db.tasks = db.tasks.map((t: any) => t.id === action.payload.id ? { 
+          ...t, 
+          status: action.payload.status, 
+          updatedAt: action.payload.updatedAt,
+          ...(action.payload.waitingApprovalAt ? { waitingApprovalAt: action.payload.waitingApprovalAt } : {})
+        } : t);
         break;
       case 'UPDATE_TASK_NOTES':
         db.tasks = db.tasks.map((t: any) => t.id === action.payload.id ? { ...t, notes: action.payload.notes, updatedAt: action.payload.updatedAt } : t);
@@ -220,7 +225,12 @@ async function startServer() {
               }
               break;
             case 'UPDATE_TASK_STATUS':
-              db.tasks = db.tasks.map((t: any) => t.id === action.payload.id ? { ...t, status: action.payload.status, updatedAt: action.payload.updatedAt } : t);
+              db.tasks = db.tasks.map((t: any) => t.id === action.payload.id ? { 
+                ...t, 
+                status: action.payload.status, 
+                updatedAt: action.payload.updatedAt,
+                ...(action.payload.waitingApprovalAt ? { waitingApprovalAt: action.payload.waitingApprovalAt } : {})
+              } : t);
               break;
             case 'UPDATE_TASK_NOTES':
               db.tasks = db.tasks.map((t: any) => t.id === action.payload.id ? { ...t, notes: action.payload.notes, updatedAt: action.payload.updatedAt } : t);
@@ -313,7 +323,7 @@ async function startServer() {
     });
   }
 
-  const PORT = process.env.PORT || 45001;
+  const PORT = Number(process.env.PORT) || 45001;
   httpServer.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running at http://0.0.0.0:${PORT}`);
   });
