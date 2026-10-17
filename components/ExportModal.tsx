@@ -54,22 +54,25 @@ const ExportModal: React.FC<ExportModalProps> = ({ tasks, subordinateTasks, temp
     let csvContent = "\ufeff"; // UTF-8 BOM for Excel support
     
     if (layout === 'FLAT') {
-      csvContent += "Công ty,Nội dung công việc,Đang làm,Ngày tạo,Trạng thái\n";
+      csvContent += "Công ty,Nội dung công việc,Trạng thái,Ghi chú,Ngày tạo\n";
       filteredTasks.forEach(t => {
         const company = t.company.replace(/"/g, '""');
         const content = t.content.replace(/"/g, '""');
-        const pending = t.status !== TaskStatus.DONE ? content : "";
+        const status = t.status === TaskStatus.DONE ? "Đã xong" 
+          : t.status === TaskStatus.WAITING_APPROVAL ? "Đợi chốt" 
+          : "Đang làm";
+        const notes = (t.notes || '').replace(/"/g, '""');
         const date = formatDate(t.createdAt.split('T')[0]);
-        const status = t.status === TaskStatus.DONE ? "Đã xong" : "Chưa xong";
-        csvContent += `"${company}","${content}","${pending}","${date}","${status}"\n`;
+        csvContent += `"${company}","${content}","${status}","${notes}","${date}"\n`;
       });
     } else {
-      csvContent += "Công ty,Nội dung tóm tắt,Đang thực hiện\n";
+      csvContent += "Công ty,Nội dung tóm tắt,Đang thực hiện,Đã hoàn thành\n";
       (Object.entries(groupedTasks || {}) as [string, Task[]][]).forEach(([company, tks]) => {
         const cName = company.replace(/"/g, '""');
         const summary = tks.map((tk, i) => `${i + 1}. ${tk.content}`).join('\n').replace(/"/g, '""');
         const pending = tks.filter(tk => tk.status !== TaskStatus.DONE).map((tk, i) => `${i + 1}. ${tk.content}`).join('\n').replace(/"/g, '""');
-        csvContent += `"${cName}","${summary}","${pending}"\n`;
+        const done = tks.filter(tk => tk.status === TaskStatus.DONE).map((tk, i) => `${i + 1}. ${tk.content}`).join('\n').replace(/"/g, '""');
+        csvContent += `"${cName}","${summary}","${pending}","${done}"\n`;
       });
     }
 
@@ -181,7 +184,8 @@ const ExportModal: React.FC<ExportModalProps> = ({ tasks, subordinateTasks, temp
                           <>
                             <th className="p-4 border text-[10px] font-black uppercase text-left">Công ty</th>
                             <th className="p-4 border text-[10px] font-black uppercase text-left">Nội dung</th>
-                            <th className="p-4 border text-[10px] font-black uppercase text-left">Đang làm</th>
+                            <th className="p-4 border text-[10px] font-black uppercase text-center">Trạng thái</th>
+                            <th className="p-4 border text-[10px] font-black uppercase text-left">Ghi chú</th>
                             <th className="p-4 border text-[10px] font-black uppercase text-center">Ngày</th>
                           </>
                         ) : (
@@ -189,6 +193,7 @@ const ExportModal: React.FC<ExportModalProps> = ({ tasks, subordinateTasks, temp
                             <th className="p-4 border text-[10px] font-black uppercase text-left">Công ty</th>
                             <th className="p-4 border text-[10px] font-black uppercase text-left">Tóm tắt công việc</th>
                             <th className="p-4 border text-[10px] font-black uppercase text-left">Đang thực hiện</th>
+                            <th className="p-4 border text-[10px] font-black uppercase text-left">Đã hoàn thành</th>
                           </>
                         )}
                       </tr>
@@ -197,6 +202,14 @@ const ExportModal: React.FC<ExportModalProps> = ({ tasks, subordinateTasks, temp
                       {layout === 'FLAT' ? (
                         filteredTasks.map(t => {
                           const cpColor = getCompanyColor(t.company);
+                          const statusLabel = t.status === TaskStatus.DONE ? 'Đã xong' 
+                            : t.status === TaskStatus.WAITING_APPROVAL ? 'Đợi chốt' 
+                            : 'Đang làm';
+                          const statusStyle = t.status === TaskStatus.DONE 
+                            ? 'bg-emerald-100 text-emerald-700 border-emerald-200' 
+                            : t.status === TaskStatus.WAITING_APPROVAL 
+                            ? 'bg-amber-100 text-amber-700 border-amber-200' 
+                            : 'bg-blue-100 text-blue-700 border-blue-200';
                           return (
                             <tr key={t.id}>
                                <td className={`p-4 border ${cpColor.badge} align-middle text-center`}>
@@ -205,11 +218,17 @@ const ExportModal: React.FC<ExportModalProps> = ({ tasks, subordinateTasks, temp
                                   </span>
                                </td>
                                <td className={`p-4 border text-[11px] text-slate-700 font-bold ${cpColor.rowBg}`}>{t.content}</td>
-                               <td className={`p-4 border text-[11px] text-blue-600 font-black ${cpColor.rowBg}`}>{t.status !== TaskStatus.DONE ? t.content : ""}</td>
+                               <td className={`p-4 border text-center align-middle ${cpColor.rowBg}`}>
+                                  <span className={`inline-block px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wide border ${statusStyle}`}>
+                                    {statusLabel}
+                                  </span>
+                               </td>
+                               <td className={`p-4 border text-[11px] text-slate-500 font-medium whitespace-pre-wrap ${cpColor.rowBg}`}>{t.notes || ''}</td>
                                <td className={`p-4 border text-[11px] text-center text-slate-400 font-bold ${cpColor.rowBg}`}>{formatDate(t.createdAt.split('T')[0])}</td>
                             </tr>
                           );
                         })
+
                       ) : (
                         (Object.entries(groupedTasks || {}) as [string, Task[]][]).map(([company, tks]) => {
                           const cpColor = getCompanyColor(company);
@@ -225,6 +244,9 @@ const ExportModal: React.FC<ExportModalProps> = ({ tasks, subordinateTasks, temp
                                 </td>
                                <td className={`p-4 border text-[11px] text-blue-600 font-black whitespace-pre-line align-top ${cpColor.rowBg}`}>
                                   {tks.filter(tk => tk.status !== TaskStatus.DONE).map((tk, i) => `${i + 1}. ${tk.content}`).join('\n') || "-"}
+                               </td>
+                               <td className={`p-4 border text-[11px] text-emerald-600 font-black whitespace-pre-line align-top ${cpColor.rowBg}`}>
+                                  {tks.filter(tk => tk.status === TaskStatus.DONE).map((tk, i) => `${i + 1}. ${tk.content}`).join('\n') || "-"}
                                </td>
                             </tr>
                           );
