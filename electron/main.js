@@ -2,6 +2,7 @@ import { app, BrowserWindow, ipcMain } from 'electron';
 import pkg from 'electron-updater';
 const { autoUpdater } = pkg;
 import path from 'path';
+import fs from 'fs';
 import http from 'http';
 import { fileURLToPath, pathToFileURL } from 'url';
 
@@ -16,9 +17,27 @@ process.env.NODE_ENV = app.isPackaged ? 'production' : process.env.NODE_ENV || '
 let mainWindow;
 
 async function createWindow() {
+  let iconPath = path.join(__dirname, '../build/icon.ico');
+  const appRootIco = path.join(process.resourcesPath, '..', 'app.ico');
+  if (fs.existsSync(appRootIco)) {
+    iconPath = appRootIco;
+  } else if (!fs.existsSync(iconPath)) {
+    const unpackedPath = path.join(process.resourcesPath, 'app.asar.unpacked', 'build', 'icon.ico');
+    if (fs.existsSync(unpackedPath)) {
+      iconPath = unpackedPath;
+    }
+  }
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
+    title: '',
+    icon: iconPath,
+    titleBarStyle: 'hidden',
+    titleBarOverlay: {
+      color: '#ffffff',
+      symbolColor: '#0f172a',
+      height: 32
+    },
     autoHideMenuBar: true,
     webPreferences: {
       nodeIntegration: false,
@@ -63,11 +82,15 @@ app.whenReady().then(() => {
   createWindow();
 
   // Cấu hình Auto Updater
-  autoUpdater.autoDownload = true;
+  autoUpdater.autoDownload = false; // Không tự tải, chờ người dùng xác nhận
   autoUpdater.autoInstallOnAppQuit = true;
 
   autoUpdater.on('update-available', (info) => {
     if (mainWindow) mainWindow.webContents.send('update-available', info);
+  });
+
+  autoUpdater.on('update-not-available', () => {
+    // Không có bản cập nhật mới — không cần thông báo gì
   });
 
   autoUpdater.on('download-progress', (progressObj) => {
@@ -78,6 +101,17 @@ app.whenReady().then(() => {
     if (mainWindow) mainWindow.webContents.send('update-downloaded', info);
   });
 
+  autoUpdater.on('error', (err) => {
+    console.error('Auto-updater error:', err);
+    if (mainWindow) mainWindow.webContents.send('update-error', err?.message || 'Lỗi cập nhật');
+  });
+
+  // Người dùng bấm "Cập nhật" → bắt đầu tải
+  ipcMain.on('start-download', () => {
+    autoUpdater.downloadUpdate();
+  });
+
+  // Người dùng bấm "Cài đặt & Khởi động lại"
   ipcMain.on('quit-and-install', () => {
     autoUpdater.quitAndInstall();
   });
@@ -94,8 +128,23 @@ app.whenReady().then(() => {
     return app.getLoginItemSettings().openAtLogin;
   });
 
-  // Kiểm tra cập nhật ngầm
-  autoUpdater.checkForUpdatesAndNotify();
+  ipcMain.on('set-theme', (event, isDark) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.setTitleBarOverlay({
+        color: isDark ? '#020617' : '#ffffff',
+        symbolColor: isDark ? '#f8fafc' : '#0f172a',
+        height: 32
+      });
+    }
+  });
+
+  // Kiểm tra cập nhật ngầm - Tạm thời chưa dùng đến theo yêu cầu, mở lại khi cần
+  // autoUpdater.checkForUpdates().catch(() => {});
+
+  // Kiểm tra cập nhật định kỳ mỗi 30 phút - Tạm thời chưa dùng đến
+  // setInterval(() => {
+  //   autoUpdater.checkForUpdates().catch(() => {});
+  // }, 30 * 60 * 1000);
 });
 
 app.on('window-all-closed', () => {

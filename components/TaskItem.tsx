@@ -11,15 +11,17 @@ interface TaskItemProps {
   onContentChange?: (id: string, newContent: string) => void;
   onDeadlineChange?: (id: string, newDeadline?: string) => void;
   onNotesChange?: (id: string, newNotes: string) => void;
+  onDepartmentChange?: (id: string, newDepartment?: string) => void;
   onDelete?: (id: string) => void;
   readOnly?: boolean;
 }
 
-const TaskItem: React.FC<TaskItemProps> = ({ task, language, onStatusChange, onContentChange, onDeadlineChange, onNotesChange, onDelete, readOnly = false }) => {
+const TaskItem: React.FC<TaskItemProps> = ({ task, language, onStatusChange, onContentChange, onDeadlineChange, onNotesChange, onDepartmentChange, onDelete, readOnly = false }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState(task.content);
   const [editDeadline, setEditDeadline] = useState(task.deadline || '');
   const [editNotes, setEditNotes] = useState(task.notes || '');
+  const [editDepartment, setEditDepartment] = useState(task.department || '');
   const inputRef = useRef<HTMLTextAreaElement>(null);
   
   const [isNotesExpanded, setIsNotesExpanded] = useState(false);
@@ -62,6 +64,12 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, language, onStatusChange, onC
     } else {
       setEditNotes(task.notes || '');
     }
+    const currentDept = task.department || '';
+    if (editDepartment.trim() !== currentDept.trim()) {
+      onDepartmentChange?.(task.id, editDepartment.trim() || undefined);
+    } else {
+      setEditDepartment(task.department || '');
+    }
   };
 
   const handleCancel = () => {
@@ -69,6 +77,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, language, onStatusChange, onC
     setEditContent(task.content);
     setEditDeadline(task.deadline || '');
     setEditNotes(task.notes || '');
+    setEditDepartment(task.department || '');
   };
 
   const t = translations[language] || translations.vi;
@@ -118,6 +127,11 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, language, onStatusChange, onC
           }`}>
             {task.company}
           </span>
+          {task.department && (
+            <span className="flex items-center gap-1.5 text-[8px] md:text-[9px] font-bold px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+              <i className="fas fa-building text-[8px] text-slate-400"></i> {task.department}
+            </span>
+          )}
           <div className="flex flex-col items-end ml-auto gap-1">
             {task.deadline && (
               <span className={`text-[10px] font-black uppercase tracking-tight ${task.isPriority && !isDone ? 'text-rose-600 dark:text-rose-400' : 'text-blue-500 dark:text-blue-400'}`}>
@@ -126,7 +140,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, language, onStatusChange, onC
             )}
             {isDone && (
               <span className="text-[10px] font-black uppercase tracking-tight text-emerald-600 dark:text-emerald-400">
-                <i className="fas fa-check-double mr-1"></i> Hoàn thành: {new Date(task.updatedAt).toLocaleDateString(language, { day: '2-digit', month: '2-digit', year: 'numeric' })} - {new Date(task.updatedAt).toLocaleTimeString(language, { hour: '2-digit', minute: '2-digit' })}
+                <i className="fas fa-check-double mr-1"></i> Hoàn thành: {new Date(task.completedAt || task.updatedAt).toLocaleDateString(language, { day: '2-digit', month: '2-digit', year: 'numeric' })} - {new Date(task.completedAt || task.updatedAt).toLocaleTimeString(language, { hour: '2-digit', minute: '2-digit' })}
               </span>
             )}
             {task.waitingApprovalAt && (
@@ -179,6 +193,20 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, language, onStatusChange, onC
                   </button>
                 )}
               </div>
+            </div>
+            <div className="flex items-center gap-2 mt-1">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[70px]">Bộ phận:</label>
+              <input 
+                type="text" 
+                placeholder="Bộ phận tương tác"
+                value={editDepartment} 
+                onChange={e => setEditDepartment(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleSave();
+                  if (e.key === 'Escape') handleCancel();
+                }}
+                className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg outline-none text-xs font-bold text-slate-800 dark:text-white focus:ring-2 focus:ring-blue-500/50 transition-all" 
+              />
             </div>
             <div className="flex items-start gap-2 mt-2">
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[70px] mt-3">Ghi chú:</label>

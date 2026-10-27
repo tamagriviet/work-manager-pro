@@ -318,15 +318,34 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     {notifications.map(n => (
                       <div key={n.id} onClick={() => {
                         setNotifications((prev: any) => prev.map((x: any) => x.id === n.id ? {...x, isRead: true} : x));
+                        if (n.type === 'update-available' && window.electronAPI) {
+                          window.electronAPI.startDownload();
+                        }
                         if (n.type === 'update-ready' && window.electronAPI) {
                           window.electronAPI.quitAndInstall();
                         }
                       }} className={`p-4 border-b border-slate-50 dark:border-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer ${!n.isRead ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''}`}>
                         <p className={`text-xs ${!n.isRead ? 'font-bold text-slate-800 dark:text-white' : 'text-slate-500 dark:text-slate-400'}`}>{n.text}</p>
-                        {n.type === 'update-ready' && (
-                          <button className="mt-2 text-[10px] bg-blue-600 text-white px-3 py-1.5 rounded-lg font-bold shadow-lg shadow-blue-500/30">
-                            <i className="fas fa-sync-alt mr-1"></i> Cập nhật & Khởi động lại
+                        {n.type === 'update-available' && (
+                          <button className="mt-2 text-[10px] bg-blue-600 text-white px-3 py-1.5 rounded-lg font-bold shadow-lg shadow-blue-500/30 hover:bg-blue-700 transition-colors">
+                            <i className="fas fa-download mr-1"></i> Tải cập nhật
                           </button>
+                        )}
+                        {n.type === 'update-progress' && (
+                          <div className="mt-2">
+                            <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2 overflow-hidden">
+                              <div className="bg-blue-600 h-2 rounded-full transition-all duration-300" style={{width: `${n.percent || 0}%`}}></div>
+                            </div>
+                            <p className="text-[9px] text-blue-500 font-bold mt-1">{n.percent || 0}% hoàn thành</p>
+                          </div>
+                        )}
+                        {n.type === 'update-ready' && (
+                          <button className="mt-2 text-[10px] bg-emerald-600 text-white px-3 py-1.5 rounded-lg font-bold shadow-lg shadow-emerald-500/30 hover:bg-emerald-700 transition-colors">
+                            <i className="fas fa-sync-alt mr-1"></i> Cài đặt & Khởi động lại
+                          </button>
+                        )}
+                        {n.type === 'update-error' && (
+                          <span className="inline-block mt-1 text-[9px] text-rose-500 font-bold"><i className="fas fa-exclamation-triangle mr-1"></i>Thử lại sau</span>
                         )}
                       </div>
                     ))}

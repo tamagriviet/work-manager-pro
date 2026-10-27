@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useRef } from 'react';
 import { Task, ReportTemplate, ReportLayout, TaskStatus } from '../types';
 import { getCompanyColor } from '../constants';
@@ -50,29 +49,70 @@ const ExportModal: React.FC<ExportModalProps> = ({ tasks, subordinateTasks, temp
     return `${d}/${m}/${y}`;
   };
 
+  const formatDayMonth = (dateStr?: string) => {
+    if (!dateStr) return '';
+    try {
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) {
+        const parts = dateStr.split('T')[0].split('-');
+        if (parts.length >= 3) return `${parts[2]}/${parts[1]}`;
+        return dateStr;
+      }
+      const day = String(d.getDate()).padStart(2, '0');
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      return `${day}/${month}`;
+    } catch {
+      return '';
+    }
+  };
+
   const handleExportCSV = () => {
     let csvContent = "\ufeff"; // UTF-8 BOM for Excel support
     
     if (layout === 'FLAT') {
-      csvContent += "Công ty,Nội dung công việc,Trạng thái,Ghi chú,Ngày tạo\n";
+      csvContent += "Công ty,Nội dung công việc,Ngày,Bộ phận tương tác,Trạng thái,Thời gian hoàn thành/Đợi chốt,Ghi chú,Ngày tạo\n";
       filteredTasks.forEach(t => {
         const company = t.company.replace(/"/g, '""');
         const content = t.content.replace(/"/g, '""');
-        const status = t.status === TaskStatus.DONE ? "Đã xong" 
-          : t.status === TaskStatus.WAITING_APPROVAL ? "Đợi chốt" 
+        const dateShort = formatDayMonth(t.createdAt);
+        const department = (t.department || '').replace(/"/g, '""');
+        const isDone = t.status === TaskStatus.DONE;
+        const isWaiting = t.status === TaskStatus.WAITING_APPROVAL;
+        const isNotStarted = t.status === TaskStatus.NOT_STARTED;
+        const status = isDone ? "Đã xong" 
+          : isWaiting ? "Đợi chốt" 
+          : isNotStarted ? "Chưa làm"
           : "Đang làm";
+        const statusTime = isDone 
+          ? formatDayMonth(t.completedAt || t.updatedAt) 
+          : isWaiting 
+          ? formatDayMonth(t.waitingApprovalAt || t.updatedAt) 
+          : '';
         const notes = (t.notes || '').replace(/"/g, '""');
         const date = formatDate(t.createdAt.split('T')[0]);
-        csvContent += `"${company}","${content}","${status}","${notes}","${date}"\n`;
+        csvContent += `"${company}","${content}","${dateShort}","${department}","${status}","${statusTime}","${notes}","${date}"\n`;
       });
     } else {
-      csvContent += "Công ty,Nội dung tóm tắt,Đang thực hiện,Đã hoàn thành\n";
+      csvContent += "Công ty,Nội dung tóm tắt,Ngày tạo việc,Bộ phận tương tác,Đang thực hiện,Trạng thái\n";
       (Object.entries(groupedTasks || {}) as [string, Task[]][]).forEach(([company, tks]) => {
         const cName = company.replace(/"/g, '""');
         const summary = tks.map((tk, i) => `${i + 1}. ${tk.content}`).join('\n').replace(/"/g, '""');
-        const pending = tks.filter(tk => tk.status !== TaskStatus.DONE).map((tk, i) => `${i + 1}. ${tk.content}`).join('\n').replace(/"/g, '""');
-        const done = tks.filter(tk => tk.status === TaskStatus.DONE).map((tk, i) => `${i + 1}. ${tk.content}`).join('\n').replace(/"/g, '""');
-        csvContent += `"${cName}","${summary}","${pending}","${done}"\n`;
+        const dateSummary = tks.map((tk, i) => `${i + 1}. ${formatDayMonth(tk.createdAt)}`).join('\n').replace(/"/g, '""');
+        const deptSummary = tks.map((tk, i) => `${i + 1}. ${tk.department || '-'}`).join('\n').replace(/"/g, '""');
+        const activeTasks = tks.filter(tk => tk.status !== TaskStatus.NOT_STARTED);
+        const active = activeTasks.map((tk, i) => `${i + 1}. ${tk.content}`).join('\n').replace(/"/g, '""');
+        const activeStatus = activeTasks.map((tk, i) => {
+          const isDone = tk.status === TaskStatus.DONE;
+          const isWaiting = tk.status === TaskStatus.WAITING_APPROVAL;
+          const label = isDone ? 'Đã xong' : isWaiting ? 'Đợi chốt' : 'Đang làm';
+          const time = isDone 
+            ? ` (${formatDayMonth(tk.completedAt || tk.updatedAt)})` 
+            : isWaiting 
+            ? ` (${formatDayMonth(tk.waitingApprovalAt || tk.updatedAt)})` 
+            : '';
+          return `${i + 1}. ${label}${time}`;
+        }).join('\n').replace(/"/g, '""');
+        csvContent += `"${cName}","${summary}","${dateSummary}","${deptSummary}","${active}","${activeStatus}"\n`;
       });
     }
 
@@ -172,43 +212,82 @@ const ExportModal: React.FC<ExportModalProps> = ({ tasks, subordinateTasks, temp
           )}
 
           <div className="border border-slate-100 rounded-[2rem] bg-white overflow-hidden shadow-inner">
-             <div ref={reportRef} className="p-10 bg-white min-w-[700px]">
+             <div ref={reportRef} className="p-10 bg-white min-w-[800px]">
                 <div className="text-center mb-8">
                    <h1 className="text-2xl font-black text-slate-800 uppercase">BÁO CÁO CÔNG VIỆC TUẦN</h1>
                    <p className="text-xs font-bold text-slate-400 mt-2 uppercase">Thời gian: {formatDate(startDate)} - {formatDate(endDate)}</p>
                 </div>
-                <table className="w-full border-collapse">
+                <table className="w-full border-collapse" style={{ tableLayout: 'fixed' }}>
+                   {layout === 'GROUPED_BY_COMPANY' ? (
+                     <colgroup>
+                       <col className="w-28" />
+                       <col />
+                       <col className="w-20" />
+                       <col className="w-36" />
+                       <col />
+                       <col className="w-28" />
+                     </colgroup>
+                   ) : (
+                     <colgroup>
+                       <col className="w-28" />
+                       <col />
+                       <col className="w-20" />
+                       <col className="w-36" />
+                       <col className="w-32" />
+                       <col />
+                       <col className="w-28" />
+                     </colgroup>
+                   )}
                    <thead>
-                      <tr className="bg-slate-50">
-                        {layout === 'FLAT' ? (
-                          <>
-                            <th className="p-4 border text-[10px] font-black uppercase text-left">Công ty</th>
-                            <th className="p-4 border text-[10px] font-black uppercase text-left">Nội dung</th>
-                            <th className="p-4 border text-[10px] font-black uppercase text-center">Trạng thái</th>
-                            <th className="p-4 border text-[10px] font-black uppercase text-left">Ghi chú</th>
-                            <th className="p-4 border text-[10px] font-black uppercase text-center">Ngày</th>
-                          </>
-                        ) : (
-                          <>
-                            <th className="p-4 border text-[10px] font-black uppercase text-left">Công ty</th>
-                            <th className="p-4 border text-[10px] font-black uppercase text-left">Tóm tắt công việc</th>
-                            <th className="p-4 border text-[10px] font-black uppercase text-left">Đang thực hiện</th>
-                            <th className="p-4 border text-[10px] font-black uppercase text-left">Đã hoàn thành</th>
-                          </>
-                        )}
-                      </tr>
+                      {layout === 'FLAT' ? (
+                        <>
+                          <tr className="bg-slate-50">
+                            <th rowSpan={2} className="p-3 border text-[10px] font-black uppercase text-center w-28">Công ty</th>
+                            <th colSpan={3} className="p-3 border text-[10px] font-black uppercase text-center">Tóm tắt công việc</th>
+                            <th rowSpan={2} className="p-3 border text-[10px] font-black uppercase text-center w-32">Trạng thái</th>
+                            <th rowSpan={2} className="p-3 border text-[10px] font-black uppercase text-left">Ghi chú</th>
+                            <th rowSpan={2} className="p-3 border text-[10px] font-black uppercase text-center w-28">Ngày tạo</th>
+                          </tr>
+                          <tr className="bg-slate-100/60">
+                            <th className="p-2.5 border text-[9px] font-black uppercase text-left">Nội dung</th>
+                            <th className="p-2.5 border text-[9px] font-black uppercase text-center w-20">Ngày</th>
+                            <th className="p-2.5 border text-[9px] font-black uppercase text-center w-36">Bộ phận tương tác</th>
+                          </tr>
+                        </>
+                      ) : (
+                        <>
+                          <tr className="bg-slate-50">
+                            <th rowSpan={2} className="p-3 border text-[10px] font-black uppercase text-center w-28">Công ty</th>
+                            <th colSpan={3} className="p-3 border text-[10px] font-black uppercase text-center">Tóm tắt công việc</th>
+                            <th colSpan={2} className="p-3 border text-[10px] font-black uppercase text-center">Đang thực hiện</th>
+                          </tr>
+                          <tr className="bg-slate-100/60">
+                            <th className="p-2.5 border text-[9px] font-black uppercase text-left">Nội dung công việc</th>
+                            <th className="p-2.5 border text-[9px] font-black uppercase text-center w-20">Ngày</th>
+                            <th className="p-2.5 border text-[9px] font-black uppercase text-center w-36">Bộ phận tương tác</th>
+                            <th className="p-2.5 border text-[9px] font-black uppercase text-left">Nội dung công việc</th>
+                            <th className="p-2.5 border text-[9px] font-black uppercase text-center w-28">Trạng thái</th>
+                          </tr>
+                        </>
+                      )}
                    </thead>
                    <tbody>
                       {layout === 'FLAT' ? (
                         filteredTasks.map(t => {
                           const cpColor = getCompanyColor(t.company);
-                          const statusLabel = t.status === TaskStatus.DONE ? 'Đã xong' 
-                            : t.status === TaskStatus.WAITING_APPROVAL ? 'Đợi chốt' 
+                          const isDone = t.status === TaskStatus.DONE;
+                          const isWaiting = t.status === TaskStatus.WAITING_APPROVAL;
+                          const isNotStarted = t.status === TaskStatus.NOT_STARTED;
+                          const statusLabel = isDone ? 'Đã xong' 
+                            : isWaiting ? 'Đợi chốt' 
+                            : isNotStarted ? 'Chưa làm'
                             : 'Đang làm';
-                          const statusStyle = t.status === TaskStatus.DONE 
+                          const statusStyle = isDone 
                             ? 'bg-emerald-100 text-emerald-700 border-emerald-200' 
-                            : t.status === TaskStatus.WAITING_APPROVAL 
+                            : isWaiting 
                             ? 'bg-amber-100 text-amber-700 border-amber-200' 
+                            : isNotStarted
+                            ? 'bg-slate-100 text-slate-700 border-slate-200'
                             : 'bg-blue-100 text-blue-700 border-blue-200';
                           return (
                             <tr key={t.id}>
@@ -218,10 +297,24 @@ const ExportModal: React.FC<ExportModalProps> = ({ tasks, subordinateTasks, temp
                                   </span>
                                </td>
                                <td className={`p-4 border text-[11px] text-slate-700 font-bold ${cpColor.rowBg}`}>{t.content}</td>
+                               <td className={`p-4 border text-[11px] text-center text-slate-500 font-bold ${cpColor.rowBg}`}>{formatDayMonth(t.createdAt)}</td>
+                               <td className={`p-4 border text-[11px] text-center text-slate-600 font-medium ${cpColor.rowBg}`}>{t.department || '-'}</td>
                                <td className={`p-4 border text-center align-middle ${cpColor.rowBg}`}>
-                                  <span className={`inline-block px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wide border ${statusStyle}`}>
-                                    {statusLabel}
-                                  </span>
+                                  <div className="flex flex-col items-center justify-center gap-1">
+                                    <span className={`inline-block px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wide border ${statusStyle}`}>
+                                      {statusLabel}
+                                    </span>
+                                    {isDone && (
+                                      <span className="text-[10px] font-bold text-emerald-600">
+                                        {formatDayMonth(t.completedAt || t.updatedAt)}
+                                      </span>
+                                    )}
+                                    {isWaiting && (
+                                      <span className="text-[10px] font-bold text-amber-700">
+                                        {formatDayMonth(t.waitingApprovalAt || t.updatedAt)}
+                                      </span>
+                                    )}
+                                  </div>
                                </td>
                                <td className={`p-4 border text-[11px] text-slate-500 font-medium whitespace-pre-wrap ${cpColor.rowBg}`}>{t.notes || ''}</td>
                                <td className={`p-4 border text-[11px] text-center text-slate-400 font-bold ${cpColor.rowBg}`}>{formatDate(t.createdAt.split('T')[0])}</td>
@@ -232,27 +325,93 @@ const ExportModal: React.FC<ExportModalProps> = ({ tasks, subordinateTasks, temp
                       ) : (
                         (Object.entries(groupedTasks || {}) as [string, Task[]][]).map(([company, tks]) => {
                           const cpColor = getCompanyColor(company);
+                          const activeTasks = tks.filter(tk => tk.status !== TaskStatus.NOT_STARTED);
                           return (
                             <tr key={company}>
-                               <td className={`p-4 border align-top ${cpColor.badge} text-center`}>
+                               <td className={`p-4 border align-middle ${cpColor.badge} text-center w-28`}>
                                   <span className="text-[10px] font-black uppercase tracking-widest text-white">
                                     {company}
                                   </span>
                                </td>
-                               <td className={`p-4 border text-[11px] text-slate-700 whitespace-pre-line align-top font-bold ${cpColor.rowBg}`}>
-                                  {tks.map((tk, i) => `${i + 1}. ${tk.content}`).join('\n')}
+                               <td colSpan={3} className={`p-0 border align-top ${cpColor.rowBg}`}>
+                                  <table className="w-full border-collapse" style={{ tableLayout: 'fixed' }}>
+                                     <colgroup>
+                                        <col />
+                                        <col className="w-20" />
+                                        <col className="w-36" />
+                                     </colgroup>
+                                     <tbody>
+                                        {tks.map((tk, idx) => (
+                                          <tr key={tk.id} className={idx < tks.length - 1 ? "border-b border-slate-200" : ""}>
+                                             <td className="p-3 text-[11px] text-slate-700 font-bold align-middle border-r border-slate-200 break-words">
+                                                {idx + 1}. {tk.content}
+                                             </td>
+                                             <td className="p-3 text-[11px] text-center text-slate-500 font-bold w-20 align-middle border-r border-slate-200 whitespace-nowrap">
+                                                {formatDayMonth(tk.createdAt)}
+                                             </td>
+                                             <td className="p-3 text-[11px] text-center text-slate-600 font-medium w-36 align-middle">
+                                                {tk.department || '-'}
+                                             </td>
+                                          </tr>
+                                        ))}
+                                     </tbody>
+                                  </table>
                                 </td>
-                               <td className={`p-4 border text-[11px] text-blue-600 font-black whitespace-pre-line align-top ${cpColor.rowBg}`}>
-                                  {tks.filter(tk => tk.status !== TaskStatus.DONE).map((tk, i) => `${i + 1}. ${tk.content}`).join('\n') || "-"}
-                               </td>
-                               <td className={`p-4 border text-[11px] text-emerald-600 font-black whitespace-pre-line align-top ${cpColor.rowBg}`}>
-                                  {tks.filter(tk => tk.status === TaskStatus.DONE).map((tk, i) => `${i + 1}. ${tk.content}`).join('\n') || "-"}
-                               </td>
-                            </tr>
-                          );
-                        })
-                      )}
-                   </tbody>
+                                <td colSpan={2} className={`p-0 border align-top ${cpColor.rowBgLight || cpColor.rowBg}`}>
+                                   {activeTasks.length === 0 ? (
+                                      <div className="p-4 text-center text-[11px] text-slate-400 font-bold min-h-[48px] flex items-center justify-center">
+                                         -
+                                      </div>
+                                   ) : (
+                                      <table className="w-full border-collapse" style={{ tableLayout: 'fixed' }}>
+                                         <colgroup>
+                                            <col />
+                                            <col className="w-28" />
+                                         </colgroup>
+                                         <tbody>
+                                            {activeTasks.map((tk, idx) => {
+                                              const isDone = tk.status === TaskStatus.DONE;
+                                              const isWaiting = tk.status === TaskStatus.WAITING_APPROVAL;
+                                              const statusLabel = isDone ? 'Đã xong' : isWaiting ? 'Đợi chốt' : 'Đang làm';
+                                              const statusStyle = isDone 
+                                                ? 'bg-emerald-100 text-emerald-700 border-emerald-200' 
+                                                : isWaiting 
+                                                ? 'bg-amber-100 text-amber-700 border-amber-200' 
+                                                : 'bg-blue-100 text-blue-700 border-blue-200';
+                                              return (
+                                                <tr key={tk.id} className={idx < activeTasks.length - 1 ? "border-b border-slate-200" : ""}>
+                                                   <td className={`p-3 text-[11px] font-bold align-middle border-r border-slate-200 break-words ${isDone ? 'text-emerald-700' : 'text-blue-600'}`}>
+                                                      {idx + 1}. {tk.content}
+                                                   </td>
+                                                   <td className="p-3 text-center align-middle w-28 whitespace-nowrap">
+                                                      <div className="flex flex-col items-center justify-center gap-1">
+                                                         <span className={`inline-block px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wide border ${statusStyle}`}>
+                                                           {statusLabel}
+                                                         </span>
+                                                         {isDone && (
+                                                           <span className="text-[9px] font-bold text-emerald-600">
+                                                             {formatDayMonth(tk.completedAt || tk.updatedAt)}
+                                                           </span>
+                                                         )}
+                                                         {isWaiting && (
+                                                           <span className="text-[9px] font-bold text-amber-700">
+                                                             {formatDayMonth(tk.waitingApprovalAt || tk.updatedAt)}
+                                                           </span>
+                                                         )}
+                                                      </div>
+                                                   </td>
+                                                </tr>
+                                              );
+                                            })}
+                                         </tbody>
+                                      </table>
+                                   )}
+                                </td>
+                             </tr>
+                           );
+                         })
+                       )}
+                    </tbody>
                 </table>
              </div>
           </div>

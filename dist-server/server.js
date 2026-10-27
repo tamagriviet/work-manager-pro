@@ -118,8 +118,12 @@ async function startServer() {
               ...t,
               status: action.payload.status,
               updatedAt: action.payload.updatedAt,
-              ...action.payload.waitingApprovalAt ? { waitingApprovalAt: action.payload.waitingApprovalAt } : {}
+              ...action.payload.waitingApprovalAt ? { waitingApprovalAt: action.payload.waitingApprovalAt } : {},
+              ...action.payload.completedAt !== void 0 ? { completedAt: action.payload.completedAt } : action.payload.status !== "DONE" ? { completedAt: void 0 } : {}
             } : t);
+            break;
+          case "UPDATE_TASK_DEPARTMENT":
+            db.tasks = db.tasks.map((t) => t.id === action.payload.id ? { ...t, department: action.payload.department, updatedAt: action.payload.updatedAt } : t);
             break;
           case "UPDATE_TASK_NOTES":
             db.tasks = db.tasks.map((t) => t.id === action.payload.id ? { ...t, notes: action.payload.notes, updatedAt: action.payload.updatedAt } : t);
@@ -203,8 +207,12 @@ async function startServer() {
                 ...t,
                 status: action.payload.status,
                 updatedAt: action.payload.updatedAt,
-                ...action.payload.waitingApprovalAt ? { waitingApprovalAt: action.payload.waitingApprovalAt } : {}
+                ...action.payload.waitingApprovalAt ? { waitingApprovalAt: action.payload.waitingApprovalAt } : {},
+                ...action.payload.completedAt !== void 0 ? { completedAt: action.payload.completedAt } : action.payload.status !== "DONE" ? { completedAt: void 0 } : {}
               } : t);
+              break;
+            case "UPDATE_TASK_DEPARTMENT":
+              db.tasks = db.tasks.map((t) => t.id === action.payload.id ? { ...t, department: action.payload.department, updatedAt: action.payload.updatedAt } : t);
               break;
             case "UPDATE_TASK_NOTES":
               db.tasks = db.tasks.map((t) => t.id === action.payload.id ? { ...t, notes: action.payload.notes, updatedAt: action.payload.updatedAt } : t);

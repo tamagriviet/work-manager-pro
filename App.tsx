@@ -46,17 +46,74 @@ const App: React.FC = () => {
   const [mobileViewMode, setMobileViewMode] = useState<'ADD_TASK' | 'TASK_LIST'>('ADD_TASK');
 
   useEffect(() => {
+    if (window.electronAPI?.setTheme) {
+      window.electronAPI.setTheme(currentTheme === 'dark');
+    }
+  }, [currentTheme]);
+
+  useEffect(() => {
+    // Tạm thời tắt thông báo cập nhật trong ứng dụng theo yêu cầu (vẫn giữ lại icon thông báo, mở lại sau khi cần)
+    /*
     if (window.electronAPI) {
+      // Bước 1: Có bản cập nhật mới → thông báo cho người dùng (chưa tải)
       window.electronAPI.onUpdateAvailable((info: any) => {
-        setNotifications(prev => [{ id: Date.now(), text: `Đang tải bản cập nhật ${info.version}...`, isRead: false, type: 'update-progress' }, ...prev]);
+        setNotifications(prev => {
+          // Không thêm trùng nếu đã có thông báo update-available
+          if (prev.some(n => n.type === 'update-available')) return prev;
+          return [{ 
+            id: Date.now(), 
+            text: `Phiên bản mới ${info.version} đã có. Bấm để tải và cập nhật.`, 
+            isRead: false, 
+            type: 'update-available',
+            version: info.version 
+          }, ...prev];
+        });
       });
+
+      // Bước 2: Đang tải → cập nhật tiến trình %
+      window.electronAPI.onDownloadProgress((progressObj: any) => {
+        const percent = Math.round(progressObj.percent || 0);
+        setNotifications(prev => {
+          const filtered = prev.filter(n => n.type !== 'update-available' && n.type !== 'update-progress');
+          const existing = prev.find(n => n.type === 'update-progress');
+          return [{ 
+            id: existing?.id || Date.now(), 
+            text: `Đang tải bản cập nhật... ${percent}%`, 
+            isRead: false, 
+            type: 'update-progress',
+            percent 
+          }, ...filtered];
+        });
+      });
+
+      // Bước 3: Tải xong → sẵn sàng cài đặt
       window.electronAPI.onUpdateDownloaded((info: any) => {
         setNotifications(prev => {
-          const filtered = prev.filter(n => n.type !== 'update-progress');
-          return [{ id: Date.now(), text: `Phiên bản mới ${info.version} đã sẵn sàng. Bấm để khởi động lại.`, isRead: false, type: 'update-ready' }, ...filtered];
+          const filtered = prev.filter(n => n.type !== 'update-progress' && n.type !== 'update-available');
+          return [{ 
+            id: Date.now(), 
+            text: `Phiên bản ${info.version} đã tải xong. Bấm để cài đặt và khởi động lại.`, 
+            isRead: false, 
+            type: 'update-ready',
+            version: info.version 
+          }, ...filtered];
+        });
+      });
+
+      // Lỗi cập nhật
+      window.electronAPI.onUpdateError((message: string) => {
+        setNotifications(prev => {
+          const filtered = prev.filter(n => n.type !== 'update-progress' && n.type !== 'update-available');
+          return [{ 
+            id: Date.now(), 
+            text: `Lỗi cập nhật: ${message}`, 
+            isRead: false, 
+            type: 'update-error' 
+          }, ...filtered];
         });
       });
     }
+    */
   }, []);
 
   useEffect(() => {
@@ -409,6 +466,14 @@ const App: React.FC = () => {
 
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-white dark:bg-slate-950 theme-transition relative">
+      {/* Top drag strip for Electron frameless window (removes native window title & logo) */}
+      {typeof window !== 'undefined' && window.electronAPI && (
+        <div 
+          className="w-full h-8 bg-white dark:bg-slate-950 shrink-0 z-50 select-none border-b border-slate-100 dark:border-slate-800 transition-colors"
+          style={{ WebkitAppRegion: 'drag' } as any}
+        />
+      )}
+
       {/* Status Bar / Top Menu Title for Mobile (iOS Safe Area) */}
       <div 
         className="md:hidden w-full bg-white dark:bg-slate-950 border-b border-slate-100 dark:border-slate-800 flex items-end justify-center pb-3 z-[60] shadow-sm relative"
@@ -424,12 +489,24 @@ const App: React.FC = () => {
           departments={state.departments || []}
           language={currentLanguage}
           appLogo={state.settings.appLogo}
-          onAddTask={(content, company, isPriority, deadline, notes) => {
+          onAddTask={(content, company, isPriority, deadline, notes, department) => {
             const generateId = () => {
               if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
               return 'task_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 9);
             };
-            const newTask: Task = { id: generateId(), userId: state.currentUser.id, content, company, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), status: TaskStatus.NOT_STARTED, isPriority, deadline, notes };
+            const newTask: Task = { 
+              id: generateId(), 
+              userId: state.currentUser.id, 
+              content, 
+              company, 
+              department,
+              createdAt: new Date().toISOString(), 
+              updatedAt: new Date().toISOString(), 
+              status: TaskStatus.NOT_STARTED, 
+              isPriority, 
+              deadline, 
+              notes 
+            };
             setState(prev => prev ? ({ ...prev, tasks: [newTask, ...prev.tasks] }) : null);
             dispatchAction({ type: 'ADD_TASK', payload: newTask });
           }} 
@@ -511,15 +588,34 @@ const App: React.FC = () => {
                           {notifications.map(n => (
                             <div key={n.id} onClick={() => {
                               setNotifications(prev => prev.map(x => x.id === n.id ? {...x, isRead: true} : x));
+                              if (n.type === 'update-available' && window.electronAPI) {
+                                window.electronAPI.startDownload();
+                              }
                               if (n.type === 'update-ready' && window.electronAPI) {
                                 window.electronAPI.quitAndInstall();
                               }
                             }} className={`p-4 border-b border-slate-50 dark:border-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer ${!n.isRead ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''}`}>
                               <p className={`text-xs ${!n.isRead ? 'font-bold text-slate-800 dark:text-white' : 'text-slate-500 dark:text-slate-400'}`}>{n.text}</p>
-                              {n.type === 'update-ready' && (
-                                <button className="mt-2 text-[10px] bg-blue-600 text-white px-3 py-1.5 rounded-lg font-bold shadow-lg shadow-blue-500/30">
-                                  <i className="fas fa-sync-alt mr-1"></i> Cập nhật & Khởi động lại
+                              {n.type === 'update-available' && (
+                                <button className="mt-2 text-[10px] bg-blue-600 text-white px-3 py-1.5 rounded-lg font-bold shadow-lg shadow-blue-500/30 hover:bg-blue-700 transition-colors">
+                                  <i className="fas fa-download mr-1"></i> Tải cập nhật
                                 </button>
+                              )}
+                              {n.type === 'update-progress' && (
+                                <div className="mt-2">
+                                  <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2 overflow-hidden">
+                                    <div className="bg-blue-600 h-2 rounded-full transition-all duration-300" style={{width: `${n.percent || 0}%`}}></div>
+                                  </div>
+                                  <p className="text-[9px] text-blue-500 font-bold mt-1">{n.percent || 0}% hoàn thành</p>
+                                </div>
+                              )}
+                              {n.type === 'update-ready' && (
+                                <button className="mt-2 text-[10px] bg-emerald-600 text-white px-3 py-1.5 rounded-lg font-bold shadow-lg shadow-emerald-500/30 hover:bg-emerald-700 transition-colors">
+                                  <i className="fas fa-sync-alt mr-1"></i> Cài đặt & Khởi động lại
+                                </button>
+                              )}
+                              {n.type === 'update-error' && (
+                                <span className="inline-block mt-1 text-[9px] text-rose-500 font-bold"><i className="fas fa-exclamation-triangle mr-1"></i>Thử lại sau</span>
                               )}
                             </div>
                           ))}
@@ -610,9 +706,15 @@ const App: React.FC = () => {
                                       readOnly={currentView === 'TEAM'}
                                       onStatusChange={(id, status) => {
                                         const updatedAt = new Date().toISOString();
+                                        const completedAt = status === TaskStatus.DONE ? updatedAt : undefined;
                                         setState(p => p ? ({...p, tasks: p.tasks.map(t => {
                                           if (t.id === id) {
                                             const updates: any = { status, updatedAt };
+                                            if (status === TaskStatus.DONE) {
+                                              updates.completedAt = completedAt;
+                                            } else {
+                                              updates.completedAt = undefined;
+                                            }
                                             if (status === TaskStatus.WAITING_APPROVAL) {
                                               updates.waitingApprovalAt = updatedAt;
                                             }
@@ -621,10 +723,18 @@ const App: React.FC = () => {
                                           return t;
                                         })}) : null);
                                         const payload: any = { id, status, updatedAt };
+                                        if (status === TaskStatus.DONE) {
+                                          payload.completedAt = completedAt;
+                                        }
                                         if (status === TaskStatus.WAITING_APPROVAL) {
                                           payload.waitingApprovalAt = updatedAt;
                                         }
                                         dispatchAction({ type: 'UPDATE_TASK_STATUS', payload });
+                                      }}
+                                      onDepartmentChange={(id, department) => {
+                                        const updatedAt = new Date().toISOString();
+                                        setState(p => p ? ({...p, tasks: p.tasks.map(t => t.id === id ? {...t, department, updatedAt} : t)}) : null);
+                                        dispatchAction({ type: 'UPDATE_TASK_DEPARTMENT', payload: { id, department, updatedAt } });
                                       }}
                                       onContentChange={(id, content) => {
                                         const updatedAt = new Date().toISOString();

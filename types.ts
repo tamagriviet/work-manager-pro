@@ -36,6 +36,7 @@ export interface Task {
   userId: string; 
   content: string;
   company: string;
+  department?: string; // BỘ PHẬN TƯƠNG TÁC
   createdAt: string; 
   updatedAt: string;
   status: TaskStatus;
@@ -44,6 +45,7 @@ export interface Task {
   deletedAt?: string;
   notes?: string;
   waitingApprovalAt?: string;
+  completedAt?: string; // Thời gian hoàn thành
 }
 
 export interface ReportTemplate {
@@ -79,9 +81,12 @@ declare global {
       onUpdateAvailable: (callback: (info: any) => void) => void;
       onUpdateDownloaded: (callback: (info: any) => void) => void;
       onDownloadProgress: (callback: (progressObj: any) => void) => void;
+      onUpdateError: (callback: (message: string) => void) => void;
+      startDownload: () => void;
       quitAndInstall: () => void;
       setAutostart: (enable: boolean) => Promise<boolean>;
       getAutostart: () => Promise<boolean>;
+      setTheme?: (isDark: boolean) => void;
     };
   }
 }
