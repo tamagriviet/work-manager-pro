@@ -625,7 +625,7 @@ const App: React.FC = () => {
                   </div>
 
                   <div className="text-right hidden sm:block">
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{currentView === 'PERSONAL' ? 'Đang xử lý' : 'Tổng việc chưa xong'}</p>
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{currentView === 'PERSONAL' ? (t.doing || 'Đang xử lý') : (t.teamUnfinished || 'Tổng việc chưa xong')}</p>
                     <p className="text-xl md:text-2xl font-black text-rose-500 leading-none">{stats.active}</p>
                   </div>
                   <div className="text-right">
@@ -699,7 +699,7 @@ const App: React.FC = () => {
                               return (
                                 <React.Fragment key={task.id}>
                                   {separator}
-                                  <div className="w-full sm:w-[340px] md:w-[360px] lg:w-[380px] shrink-0">
+                                  <div className="w-full sm:w-[350px] md:w-[370px] lg:w-[390px] shrink-0">
                                     <TaskItem 
                                       task={task} 
                                       language={currentLanguage} 

@@ -1,6 +1,6 @@
 Add-Type -AssemblyName System.Drawing
 
-$srcPath = "C:/Users/Admin/.gemini/antigravity/brain/29fb37f2-09cd-477f-bd45-2440ab025c41/.user_uploaded/media_1793062556521_214ee8b6.png"
+$srcPath = "C:/Users/Admin/.gemini/antigravity/brain/dfae2a32-8780-4b37-8a40-b89306ea0260/.user_uploaded/media_1793346324627_6a8f0f03.png"
 $outIcoPath = "d:\work-manager-pro\build\icon.ico"
 $srcImg = [System.Drawing.Image]::FromFile($srcPath)
 
@@ -131,3 +131,4 @@ foreach ($entry in $entries) {
 $bw.Flush()
 $fs.Close()
 Write-Host "Created perfect Windows ICO! Size: " (Get-Item $outIcoPath).Length
+

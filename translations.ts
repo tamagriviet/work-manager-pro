@@ -66,7 +66,11 @@ export const translations = {
     wrongOldPassword: "Mật khẩu cũ không chính xác!",
     workingCompanies: "NHỮNG CÔNG TY BẠN LÀM VIỆC",
     security: "Bảo mật",
-    general: "Chung"
+    general: "Chung",
+    due: "Hạn",
+    completed: "Hoàn thành",
+    waitingApprovalDate: "Đợi chốt",
+    teamUnfinished: "Tổng việc chưa xong"
   },
   en: {
     appName: "Work Manager Pro",
@@ -134,7 +138,11 @@ export const translations = {
     wrongOldPassword: "Incorrect old password!",
     workingCompanies: "YOUR COMPANIES",
     security: "Security",
-    general: "General"
+    general: "General",
+    due: "Due",
+    completed: "Done",
+    waitingApprovalDate: "Pending",
+    teamUnfinished: "Total Unfinished"
   },
   zh: {
     appName: "Work Manager Pro",
@@ -202,7 +210,11 @@ export const translations = {
     wrongOldPassword: "旧密码错误！",
     workingCompanies: "您合作的公司",
     security: "安全",
-    general: "通用"
+    general: "通用",
+    due: "截止",
+    completed: "已完成",
+    waitingApprovalDate: "待审批",
+    teamUnfinished: "未完成总计"
   },
   ru: {
     appName: "Work Manager Pro",
@@ -270,6 +282,10 @@ export const translations = {
     wrongOldPassword: "Неверный старый пароль!",
     workingCompanies: "ВАШИ КОМПАНИИ",
     security: "Безопасность",
-    general: "Общие"
+    general: "Общие",
+    due: "Срок",
+    completed: "Готово",
+    waitingApprovalDate: "Ожидает",
+    teamUnfinished: "Всего задач"
   }
 };
