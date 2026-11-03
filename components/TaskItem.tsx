@@ -267,7 +267,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, language = 'vi', onStatusChan
 
       {!readOnly && (
         <div className="flex items-center gap-1.5 sm:gap-2 w-full mt-2 sm:mt-1 min-w-0">
-          <div className={`grid grid-cols-4 flex-1 min-w-0 p-1 sm:p-1.5 rounded-xl sm:rounded-2xl border bg-white/80 dark:bg-slate-950/80 backdrop-blur-sm ${task.isPriority ? 'border-rose-100 dark:border-rose-900' : cpColor.border + ' dark:border-slate-800'}`}>
+          <div className={`grid grid-cols-4 flex-1 min-w-0 p-1 rounded-full border bg-white/80 dark:bg-slate-950/80 backdrop-blur-sm ${task.isPriority ? 'border-rose-100 dark:border-rose-900' : cpColor.border + ' dark:border-slate-800'}`}>
             {/* Hiển thị 4 trạng thái */}
             {[TaskStatus.NOT_STARTED, TaskStatus.IN_PROGRESS, TaskStatus.WAITING_APPROVAL, TaskStatus.DONE].map((status) => (
               <button
@@ -275,9 +275,9 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, language = 'vi', onStatusChan
                 type="button"
                 onClick={() => onStatusChange?.(task.id, status)}
                 title={t[status]}
-                className={`px-1 py-1.5 sm:py-2 rounded-lg sm:rounded-xl text-[8px] sm:text-[9px] md:text-[9.5px] font-black uppercase tracking-tight transition-all flex items-center justify-center text-center min-w-0 ${
+                className={`px-1 py-1.5 sm:py-2 rounded-full text-[8px] sm:text-[9px] md:text-[9.5px] font-black uppercase tracking-tight transition-all flex items-center justify-center text-center min-w-0 ${
                   task.status === status
-                    ? STATUS_LABELS[status].color + " shadow-md font-black"
+                    ? STATUS_LABELS[status].color + " shadow-sm font-black"
                     : 'text-slate-400 hover:text-slate-600 dark:text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-900/50 font-bold'
                 }`}
               >
@@ -290,7 +290,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, language = 'vi', onStatusChan
           <button
             type="button"
             onClick={() => onDelete?.(task.id)}
-            className="w-9 h-9 sm:w-10 sm:h-10 shrink-0 rounded-xl flex items-center justify-center text-slate-300 dark:text-slate-600 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-all"
+            className="w-9 h-9 sm:w-10 sm:h-10 shrink-0 rounded-full flex items-center justify-center text-slate-300 dark:text-slate-600 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-all"
             title={t.delete || "Xóa"}
           >
             <i className="fas fa-trash-alt text-sm"></i>

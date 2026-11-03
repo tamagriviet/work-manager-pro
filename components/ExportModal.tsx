@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { Task, ReportTemplate, ReportLayout, TaskStatus } from '../types';
 import { getCompanyColor } from '../constants';
+import { generateReportExcel } from '../services/excelExportService';
 
 interface ExportModalProps {
   tasks: Task[];
@@ -66,75 +67,141 @@ const ExportModal: React.FC<ExportModalProps> = ({ tasks, subordinateTasks, temp
     }
   };
 
-  const handleExportCSV = () => {
-    let csvContent = "\ufeff"; // UTF-8 BOM for Excel support
-    
-    if (layout === 'FLAT') {
-      csvContent += "Công ty,Nội dung,Ngày,Bộ phận tương tác,Trạng thái,Ghi chú\n";
-      filteredTasks.forEach(t => {
-        const company = t.company.replace(/"/g, '""');
-        const content = t.content.replace(/"/g, '""');
-        const dateShort = formatDayMonth(t.createdAt);
-        const department = (t.department || '').replace(/"/g, '""');
-        const isDone = t.status === TaskStatus.DONE;
-        const isWaiting = t.status === TaskStatus.WAITING_APPROVAL;
-        const isNotStarted = t.status === TaskStatus.NOT_STARTED;
-        const status = isDone ? "Đã xong" 
-          : isWaiting ? "Đợi chốt" 
-          : isNotStarted ? "CHƯA LÀM"
-          : "Đang làm";
-        const statusTime = isDone 
-          ? formatDayMonth(t.completedAt || t.updatedAt) 
-          : isWaiting 
-          ? formatDayMonth(t.waitingApprovalAt || t.updatedAt) 
-          : '';
-        const fullStatus = statusTime ? `${status} (${statusTime})` : status;
-        const notes = (t.notes || '').replace(/"/g, '""');
-        csvContent += `"${company}","${content}","${dateShort}","${department}","${fullStatus}","${notes}"\n`;
+  const handleExportExcel = async () => {
+    try {
+      const buffer = await generateReportExcel({
+        tasks: filteredTasks,
+        groupedTasks,
+        layout,
+        startDate,
+        endDate
       });
-    } else {
-      csvContent += "Công ty,Nội dung công việc,Ngày,Bộ phận tương tác,Trạng thái\n";
-      (Object.entries(groupedTasks || {}) as [string, Task[]][]).forEach(([company, tks]) => {
-        const cName = company.replace(/"/g, '""');
-        const contentSummary = tks.map((tk, i) => `${i + 1}. ${tk.content}`).join('\n').replace(/"/g, '""');
-        const dateSummary = tks.map((tk, i) => `${i + 1}. ${formatDayMonth(tk.createdAt)}`).join('\n').replace(/"/g, '""');
-        const deptSummary = tks.map((tk, i) => `${i + 1}. ${tk.department || '-'}`).join('\n').replace(/"/g, '""');
-        const statusSummary = tks.map((tk, i) => {
-          const isDone = tk.status === TaskStatus.DONE;
-          const isWaiting = tk.status === TaskStatus.WAITING_APPROVAL;
-          const isNotStarted = tk.status === TaskStatus.NOT_STARTED;
-          const label = isDone ? 'Đã xong' 
-            : isWaiting ? 'Đợi chốt' 
-            : isNotStarted ? 'CHƯA LÀM' 
-            : 'Đang làm';
-          const time = isDone 
-            ? ` (${formatDayMonth(tk.completedAt || tk.updatedAt)})` 
-            : isWaiting 
-            ? ` (${formatDayMonth(tk.waitingApprovalAt || tk.updatedAt)})` 
-            : '';
-          return `${i + 1}. ${label}${time}`;
-        }).join('\n').replace(/"/g, '""');
-        csvContent += `"${cName}","${contentSummary}","${dateSummary}","${deptSummary}","${statusSummary}"\n`;
-      });
-    }
 
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `Bao_Cao_${startDate}.csv`;
-    link.click();
+      const fileName = `Bao_Cao_${startDate}.xlsx`;
+
+      if (typeof window !== 'undefined' && (window as any).Capacitor && (window as any).Capacitor.isNativePlatform()) {
+        const { Filesystem, Directory } = await import('@capacitor/filesystem');
+        const { Share } = await import('@capacitor/share');
+        
+        let binary = '';
+        const bytes = new Uint8Array(buffer);
+        const chunkSize = 8192;
+        for (let i = 0; i < bytes.length; i += chunkSize) {
+          binary += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + chunkSize)));
+        }
+        const base64Data = btoa(binary);
+
+        const savedFile = await Filesystem.writeFile({
+          path: fileName,
+          data: base64Data,
+          directory: Directory.Cache
+        });
+        await Share.share({
+          title: 'Báo Cáo Excel',
+          url: savedFile.uri,
+          dialogTitle: 'Chia sẻ file Excel'
+        });
+      } else {
+        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = fileName;
+        link.click();
+      }
+    } catch (err) {
+      console.error('Lỗi xuất Excel:', err);
+      alert('Xuất file Excel thất bại. Vui lòng thử lại!');
+    }
+  };
+
+  const setPngDpi300 = (dataUrl: string): string => {
+    try {
+      const isDataUrl = dataUrl.startsWith('data:');
+      const base64Data = isDataUrl ? dataUrl.split(',')[1] : dataUrl;
+      const binaryString = atob(base64Data);
+      const len = binaryString.length;
+      const bytes = new Uint8Array(len);
+      for (let i = 0; i < len; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+
+      // Check PNG signature: 89 50 4E 47 0D 0A 1A 0A
+      if (bytes.length < 33 || bytes[0] !== 0x89 || bytes[1] !== 0x50 || bytes[2] !== 0x4E || bytes[3] !== 0x47) {
+        return dataUrl;
+      }
+
+      // 300 DPI = Math.round(300 / 0.0254) = 11811 pixels/meter = 0x00002E23
+      // Precalculated pHYs chunk for 300 DPI (length: 9, type: 'pHYs', X: 11811, Y: 11811, unit: 1, CRC: 0x78A53F76)
+      const physChunk = new Uint8Array([
+        0x00, 0x00, 0x00, 0x09, // Length: 9 bytes
+        0x70, 0x48, 0x59, 0x73, // 'pHYs'
+        0x00, 0x00, 0x2E, 0x23, // X pixels per meter (11811)
+        0x00, 0x00, 0x2E, 0x23, // Y pixels per meter (11811)
+        0x01,                   // Unit: meter
+        0x78, 0xA5, 0x3F, 0x76  // CRC32
+      ]);
+
+      let pos = 33; // after IHDR chunk
+      let existingPhysStart = -1;
+      let existingPhysLen = 0;
+
+      while (pos < bytes.length - 8) {
+        const chunkLen = (bytes[pos] << 24) | (bytes[pos + 1] << 16) | (bytes[pos + 2] << 8) | bytes[pos + 3];
+        const chunkType = String.fromCharCode(bytes[pos + 4], bytes[pos + 5], bytes[pos + 6], bytes[pos + 7]);
+        if (chunkType === 'pHYs') {
+          existingPhysStart = pos;
+          existingPhysLen = chunkLen + 12;
+          break;
+        }
+        if (chunkType === 'IDAT' || chunkType === 'IEND') {
+          break;
+        }
+        pos += chunkLen + 12;
+      }
+
+      let result: Uint8Array;
+      if (existingPhysStart !== -1) {
+        result = new Uint8Array(bytes.length - existingPhysLen + physChunk.length);
+        result.set(bytes.subarray(0, existingPhysStart), 0);
+        result.set(physChunk, existingPhysStart);
+        result.set(bytes.subarray(existingPhysStart + existingPhysLen), existingPhysStart + physChunk.length);
+      } else {
+        result = new Uint8Array(bytes.length + physChunk.length);
+        result.set(bytes.subarray(0, 33), 0);
+        result.set(physChunk, 33);
+        result.set(bytes.subarray(33), 33 + physChunk.length);
+      }
+
+      let binary = '';
+      const chunkSize = 8192;
+      for (let i = 0; i < result.length; i += chunkSize) {
+        binary += String.fromCharCode.apply(null, Array.from(result.subarray(i, i + chunkSize)));
+      }
+      const newBase64 = btoa(binary);
+      return isDataUrl ? `data:image/png;base64,${newBase64}` : newBase64;
+    } catch (err) {
+      console.error('Error applying 300 DPI to PNG:', err);
+      return dataUrl;
+    }
   };
 
   const handleExportImage = async () => {
     if (!reportRef.current) return;
     try {
+      // 300 DPI: scale = 300 / 96 = 3.125
+      const dpiScale = 300 / 96;
       const canvas = await (window as any).html2canvas(reportRef.current, { 
-        scale: 2, 
+        scale: dpiScale, 
         backgroundColor: '#ffffff',
         useCORS: true,
-        logging: false
+        logging: false,
+        scrollX: 0,
+        scrollY: 0,
+        windowWidth: reportRef.current.scrollWidth,
+        windowHeight: reportRef.current.scrollHeight
       });
-      const dataUrl = canvas.toDataURL('image/png');
+      const rawDataUrl = canvas.toDataURL('image/png');
+      const dataUrl = setPngDpi300(rawDataUrl);
       
       if (typeof window !== 'undefined' && (window as any).Capacitor && (window as any).Capacitor.isNativePlatform()) {
         const { Filesystem, Directory } = await import('@capacitor/filesystem');
@@ -276,6 +343,11 @@ const ExportModal: React.FC<ExportModalProps> = ({ tasks, subordinateTasks, temp
                             : isNotStarted
                             ? 'bg-slate-100 text-slate-700 border-slate-200'
                             : 'bg-blue-100 text-blue-700 border-blue-200';
+                          const statusDate = isDone 
+                            ? formatDayMonth(t.completedAt || t.updatedAt) 
+                            : isWaiting 
+                            ? formatDayMonth(t.waitingApprovalAt || t.updatedAt) 
+                            : '';
                           return (
                             <tr key={t.id}>
                                <td className={`p-4 border ${cpColor.badge} align-middle text-center`}>
@@ -287,20 +359,17 @@ const ExportModal: React.FC<ExportModalProps> = ({ tasks, subordinateTasks, temp
                                <td className={`p-4 border text-[11px] text-center text-slate-500 font-bold ${cpColor.rowBg}`}>{formatDayMonth(t.createdAt)}</td>
                                <td className={`p-4 border text-[11px] text-center text-slate-600 font-medium ${cpColor.rowBg}`}>{t.department || '-'}</td>
                                <td className={`p-4 border text-center align-middle ${cpColor.rowBg}`}>
-                                  <div className="flex flex-col items-center justify-center gap-1">
-                                    <span className={`inline-block px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wide border ${statusStyle}`}>
-                                      {statusLabel}
-                                    </span>
-                                    {isDone && (
-                                      <span className="text-[10px] font-bold text-emerald-600">
-                                        {formatDayMonth(t.completedAt || t.updatedAt)}
-                                      </span>
-                                    )}
-                                    {isWaiting && (
-                                      <span className="text-[10px] font-bold text-amber-700">
-                                        {formatDayMonth(t.waitingApprovalAt || t.updatedAt)}
-                                      </span>
-                                    )}
+                                  <div className="flex items-center justify-center">
+                                    <div className={`inline-block px-3 py-1 rounded-xl text-center border ${statusStyle} min-w-[76px]`}>
+                                      <div className="text-[10px] font-black uppercase tracking-wider leading-tight">
+                                        {statusLabel}
+                                      </div>
+                                      {statusDate && (
+                                        <div className="text-[8.5px] font-bold leading-tight mt-0.5 opacity-85">
+                                          {statusDate}
+                                        </div>
+                                      )}
+                                    </div>
                                   </div>
                                </td>
                                <td className={`p-4 border text-[11px] text-slate-500 font-medium whitespace-pre-wrap ${cpColor.rowBg}`}>{t.notes || ''}</td>
@@ -342,6 +411,11 @@ const ExportModal: React.FC<ExportModalProps> = ({ tasks, subordinateTasks, temp
                                             : isNotStarted
                                             ? 'bg-slate-100 text-slate-700 border-slate-200'
                                             : 'bg-blue-100 text-blue-700 border-blue-200';
+                                          const statusDate = isDone 
+                                            ? formatDayMonth(tk.completedAt || tk.updatedAt) 
+                                            : isWaiting 
+                                            ? formatDayMonth(tk.waitingApprovalAt || tk.updatedAt) 
+                                            : '';
 
                                           return (
                                             <tr key={tk.id} className={idx < tks.length - 1 ? "border-b border-slate-200" : ""}>
@@ -355,20 +429,17 @@ const ExportModal: React.FC<ExportModalProps> = ({ tasks, subordinateTasks, temp
                                                   {tk.department || '-'}
                                                </td>
                                                <td className="p-3 text-center align-middle w-32 whitespace-nowrap">
-                                                  <div className="flex flex-col items-center justify-center gap-1">
-                                                     <span className={`inline-block px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wide border ${statusStyle}`}>
-                                                       {statusLabel}
-                                                     </span>
-                                                     {isDone && (
-                                                       <span className="text-[9px] font-bold text-emerald-600">
-                                                         {formatDayMonth(tk.completedAt || tk.updatedAt)}
-                                                       </span>
-                                                     )}
-                                                     {isWaiting && (
-                                                       <span className="text-[9px] font-bold text-amber-700">
-                                                         {formatDayMonth(tk.waitingApprovalAt || tk.updatedAt)}
-                                                       </span>
-                                                     )}
+                                                  <div className="flex items-center justify-center">
+                                                    <div className={`inline-block px-3 py-1 rounded-xl text-center border ${statusStyle} min-w-[76px]`}>
+                                                      <div className="text-[9.5px] font-black uppercase tracking-wider leading-tight">
+                                                        {statusLabel}
+                                                      </div>
+                                                      {statusDate && (
+                                                        <div className="text-[8.5px] font-bold leading-tight mt-0.5 opacity-85">
+                                                          {statusDate}
+                                                        </div>
+                                                      )}
+                                                    </div>
                                                   </div>
                                                </td>
                                             </tr>
@@ -389,7 +460,7 @@ const ExportModal: React.FC<ExportModalProps> = ({ tasks, subordinateTasks, temp
         </div>
 
         <footer className="p-6 md:p-8 bg-slate-50 border-t border-slate-100 flex justify-end gap-4 shrink-0">
-           <button onClick={handleExportCSV} className="px-8 py-4 bg-emerald-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg hover:opacity-90 active:scale-95 transition-all">
+           <button onClick={handleExportExcel} className="px-8 py-4 bg-emerald-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg hover:opacity-90 active:scale-95 transition-all">
               <i className="fas fa-file-excel mr-2"></i> Xuất EXCEL
            </button>
            <button onClick={handleExportImage} className="px-8 py-4 bg-indigo-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg hover:opacity-90 active:scale-95 transition-all">

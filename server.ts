@@ -112,8 +112,19 @@ async function startServer() {
     }
   });
 
+  const onlineSockets = new Map<string, string>(); // socket.id -> userId
+  const getOnlineUserIds = () => Array.from(new Set(onlineSockets.values()));
+
   app.get('/api/state', async (req, res) => {
-    res.json(await getDb());
+    const db = await getDb();
+    res.json({
+      ...db,
+      onlineUserIds: getOnlineUserIds()
+    });
+  });
+
+  app.get('/api/online-users', (req, res) => {
+    res.json(getOnlineUserIds());
   });
 
 
@@ -217,6 +228,7 @@ async function startServer() {
 
   io.on('connection', (socket) => {
     console.log('Client connected:', socket.id);
+    socket.emit('online-users', getOnlineUserIds());
 
     socket.on('dispatch', async (action) => {
       dispatchLock = dispatchLock.then(async () => {
@@ -305,12 +317,23 @@ async function startServer() {
     });
 
     socket.on('user-login', (userId) => {
-      // Broadcast force-logout to all OTHER clients
-      socket.broadcast.emit('force-logout', userId);
+      if (userId) {
+        onlineSockets.set(socket.id, userId);
+        // Broadcast force-logout to all OTHER clients with same userId
+        socket.broadcast.emit('force-logout', userId);
+        io.emit('online-users', getOnlineUserIds());
+      }
+    });
+
+    socket.on('user-logout', () => {
+      onlineSockets.delete(socket.id);
+      io.emit('online-users', getOnlineUserIds());
     });
 
     socket.on('disconnect', () => {
       console.log('Client disconnected:', socket.id);
+      onlineSockets.delete(socket.id);
+      io.emit('online-users', getOnlineUserIds());
     });
   });
 

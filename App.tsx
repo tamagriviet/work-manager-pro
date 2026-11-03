@@ -33,6 +33,7 @@ const App: React.FC = () => {
   });
   const [currentView, setCurrentView] = useState<'PERSONAL' | 'TEAM'>('PERSONAL');
   const [selectedTeamMember, setSelectedTeamMember] = useState<User | null>(null);
+  const [onlineUserIds, setOnlineUserIds] = useState<string[]>([]);
   
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState<any[]>([]);
@@ -135,6 +136,10 @@ const App: React.FC = () => {
 
 
   const handleLogout = () => {
+    const socket = getSocket();
+    if (socket) {
+      socket.emit('user-logout');
+    }
     localStorage.removeItem('auto_login');
     setState(null);
     setCurrentView('PERSONAL');
@@ -143,6 +148,11 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const socket = initSocket();
+
+    socket.on('online-users', (userIds: string[]) => {
+      setOnlineUserIds(userIds || []);
+    });
+
     socket.on('state-updated', (updatedDb: any) => {
       isRemoteUpdateRef.current = true;
       setState(p => {
@@ -172,6 +182,7 @@ const App: React.FC = () => {
     });
 
     return () => {
+      socket.off('online-users');
       socket.off('state-updated');
       socket.off('force-logout');
     };
@@ -180,7 +191,14 @@ const App: React.FC = () => {
   useEffect(() => {
     if (state && state.currentUser) {
       const socket = initSocket();
-      socket.emit('user-login', state.currentUser.id);
+      const sendLogin = () => {
+        socket.emit('user-login', state.currentUser.id);
+      };
+      sendLogin();
+      socket.on('connect', sendLogin);
+      return () => {
+        socket.off('connect', sendLogin);
+      };
     }
   }, [state?.currentUser?.id]);
 
@@ -552,6 +570,7 @@ const App: React.FC = () => {
               onAddUser={(deptId?: string) => setModals(m => ({...m, manageUsers: true, currentDepartmentId: deptId || null}))}
               onLogout={handleLogout}
               onSettings={() => setModals(m => ({...m, settings: true}))}
+              onlineUserIds={onlineUserIds}
             />
           ) : (
             <>
@@ -644,6 +663,8 @@ const App: React.FC = () => {
                       language={currentLanguage}
                       onSelectUser={setSelectedTeamMember}
                       isDrillDownEnabled={true}
+                      onlineUserIds={onlineUserIds}
+                      currentUserId={state.currentUser.id}
                     />
                   ) : (
                     <div className="w-full max-w-none">

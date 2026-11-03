@@ -21,12 +21,13 @@ interface AdminDashboardProps {
   onAddUser: (deptId?: string) => void;
   onLogout: () => void;
   onSettings: () => void;
+  onlineUserIds?: string[];
 }
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ 
   users, tasks, departments, onAddDepartment, onUpdateDepartment, onDeleteDepartment, language, onSelectUser, onEditUser, 
   notifications, setNotifications, showNotifications, setShowNotifications, 
-  unreadCount, onAddUser, onLogout, onSettings 
+  unreadCount, onAddUser, onLogout, onSettings, onlineUserIds = []
 }) => {
   const t = translations[language] || translations.vi;
   const [showMobileOrgChart, setShowMobileOrgChart] = useState(false);
@@ -216,12 +217,15 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     const tasksCreatedToday = userTasks.filter(tk => tk.createdAt.startsWith(today)).length;
     const tasksCompletedToday = userTasks.filter(tk => tk.status === TaskStatus.DONE && tk.updatedAt.startsWith(today)).length;
 
+    const isOnline = (onlineUserIds || []).includes(user.id);
+
     return (
       <li key={user.id} className="animate-in fade-in zoom-in-95 duration-500">
         <div className="inline-block relative">
           <div className={`bg-white dark:bg-slate-900 border-2 border-t-[8px] p-5 rounded-3xl shadow-xl flex flex-col items-center gap-2 w-[240px] relative z-10 mx-auto hover:-translate-y-2 hover:shadow-2xl transition-all ${currentStyle.split(' ')[1]} ${currentStyle.replace('bg-', 'border-t-')}`}>
-            <div className={`w-14 h-14 rounded-[1.2rem] flex items-center justify-center font-black text-white text-xl shadow-lg ${currentStyle.split(' ')[0]}`}>
+            <div className={`w-14 h-14 rounded-[1.2rem] flex items-center justify-center font-black text-white text-xl shadow-lg relative ${currentStyle.split(' ')[0]}`}>
               {user.fullName.charAt(0)}
+              <span className={`absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full border-2 border-white dark:border-slate-900 ${isOnline ? 'bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.7)]' : 'bg-slate-300 dark:bg-slate-600'}`} title={isOnline ? 'Đang online' : 'Offline'}></span>
             </div>
             <div className="text-center w-full min-w-0 mt-1">
               <h4 className="font-black text-slate-800 dark:text-white text-sm uppercase truncate tracking-tight">{user.fullName}</h4>

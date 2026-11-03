@@ -9,9 +9,11 @@ interface TeamSummaryProps {
   language: Language;
   onSelectUser?: (user: User) => void;
   isDrillDownEnabled?: boolean;
+  onlineUserIds?: string[];
+  currentUserId?: string;
 }
 
-const TeamSummary: React.FC<TeamSummaryProps> = ({ subordinates, tasks, language, onSelectUser, isDrillDownEnabled = false }) => {
+const TeamSummary: React.FC<TeamSummaryProps> = ({ subordinates, tasks, language, onSelectUser, isDrillDownEnabled = false, onlineUserIds = [], currentUserId }) => {
   const t = translations[language] || translations.vi;
   const today = new Date().toISOString().split('T')[0];
 
@@ -29,14 +31,25 @@ const TeamSummary: React.FC<TeamSummaryProps> = ({ subordinates, tasks, language
         const totalTasks = userTasksToday.length;
         const progress = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
 
+        const isOnline = (onlineUserIds || []).includes(user.id) || (currentUserId === user.id);
+
         return (
           <div 
             key={user.id} 
             onClick={() => isDrillDownEnabled && onSelectUser?.(user)}
             className={`group bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-6 rounded-[2.5rem] shadow-sm relative overflow-hidden transition-all ${isDrillDownEnabled ? 'cursor-pointer hover:shadow-xl hover:border-blue-500' : 'cursor-default'}`}
           >
-            <div className="absolute top-0 right-0 p-4">
-               <div className={`w-2 h-2 rounded-full ${totalTasks > 0 && progress === 100 ? 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]' : 'bg-slate-200 dark:bg-slate-700'}`}></div>
+            <div className="absolute top-0 right-0 p-5 z-10 flex items-center gap-1.5" title={isOnline ? 'Đang online' : 'Offline'}>
+              <div className="relative flex items-center justify-center">
+                {isOnline ? (
+                  <>
+                    <span className="animate-ping absolute inline-flex h-2.5 w-2.5 rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.7)]"></span>
+                  </>
+                ) : (
+                  <span className="inline-flex rounded-full h-2.5 w-2.5 bg-slate-300 dark:bg-slate-600"></span>
+                )}
+              </div>
             </div>
 
             <div className="flex items-center gap-4 mb-6">
