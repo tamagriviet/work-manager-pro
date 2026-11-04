@@ -188,6 +188,9 @@ const ExportModal: React.FC<ExportModalProps> = ({ tasks, subordinateTasks, temp
   const handleExportImage = async () => {
     if (!reportRef.current) return;
     try {
+      if (typeof document !== 'undefined' && document.fonts && document.fonts.ready) {
+        await document.fonts.ready;
+      }
       // 300 DPI: scale = 300 / 96 = 3.125
       const dpiScale = 300 / 96;
       const canvas = await (window as any).html2canvas(reportRef.current, { 
@@ -197,8 +200,22 @@ const ExportModal: React.FC<ExportModalProps> = ({ tasks, subordinateTasks, temp
         logging: false,
         scrollX: 0,
         scrollY: 0,
-        windowWidth: reportRef.current.scrollWidth,
-        windowHeight: reportRef.current.scrollHeight
+        onclone: (clonedDoc: Document) => {
+          if (typeof document !== 'undefined' && document.fonts) {
+            document.fonts.forEach((font: any) => {
+              try {
+                clonedDoc.fonts.add(font);
+              } catch (e) {}
+            });
+          }
+          const fixStyle = clonedDoc.createElement('style');
+          fixStyle.innerHTML = `
+            img { display: inline-block !important; }
+            table { border-collapse: collapse !important; }
+            th, td { vertical-align: middle !important; }
+          `;
+          clonedDoc.head.appendChild(fixStyle);
+        }
       });
       const rawDataUrl = canvas.toDataURL('image/png');
       const dataUrl = setPngDpi300(rawDataUrl);
@@ -308,20 +325,20 @@ const ExportModal: React.FC<ExportModalProps> = ({ tasks, subordinateTasks, temp
                    <thead>
                       {layout === 'FLAT' ? (
                         <tr className="bg-slate-50">
-                          <th className="p-3 border text-[10px] font-black uppercase text-center w-28">Công ty</th>
-                          <th className="p-3 border text-[10px] font-black uppercase text-left">Nội dung</th>
-                          <th className="p-3 border text-[10px] font-black uppercase text-center w-20">Ngày</th>
-                          <th className="p-3 border text-[10px] font-black uppercase text-center w-36">Bộ phận tương tác</th>
-                          <th className="p-3 border text-[10px] font-black uppercase text-center w-32">Trạng thái</th>
-                          <th className="p-3 border text-[10px] font-black uppercase text-left">Ghi chú</th>
+                          <th className="py-2.5 px-3 border border-slate-200 text-[10px] font-black uppercase text-center leading-normal align-middle w-28">Công ty</th>
+                          <th className="py-2.5 px-3 border border-slate-200 text-[10px] font-black uppercase text-left leading-normal align-middle">Nội dung</th>
+                          <th className="py-2.5 px-3 border border-slate-200 text-[10px] font-black uppercase text-center leading-normal align-middle w-20">Ngày</th>
+                          <th className="py-2.5 px-3 border border-slate-200 text-[10px] font-black uppercase text-center leading-normal align-middle w-36">Bộ phận tương tác</th>
+                          <th className="py-2.5 px-3 border border-slate-200 text-[10px] font-black uppercase text-center leading-normal align-middle w-32">Trạng thái</th>
+                          <th className="py-2.5 px-3 border border-slate-200 text-[10px] font-black uppercase text-left leading-normal align-middle">Ghi chú</th>
                         </tr>
                       ) : (
                         <tr className="bg-slate-50">
-                          <th className="p-3 border text-[10px] font-black uppercase text-center w-28">Công ty</th>
-                          <th className="p-3 border text-[10px] font-black uppercase text-left">Nội dung công việc</th>
-                          <th className="p-3 border text-[10px] font-black uppercase text-center w-20">Ngày</th>
-                          <th className="p-3 border text-[10px] font-black uppercase text-center w-36">Bộ phận tương tác</th>
-                          <th className="p-3 border text-[10px] font-black uppercase text-center w-32">Trạng thái</th>
+                          <th className="py-2.5 px-3 border border-slate-200 text-[10px] font-black uppercase text-center leading-normal align-middle w-28">Công ty</th>
+                          <th className="py-2.5 px-3 border border-slate-200 text-[10px] font-black uppercase text-left leading-normal align-middle">Nội dung công việc</th>
+                          <th className="py-2.5 px-3 border border-slate-200 text-[10px] font-black uppercase text-center leading-normal align-middle w-20">Ngày</th>
+                          <th className="py-2.5 px-3 border border-slate-200 text-[10px] font-black uppercase text-center leading-normal align-middle w-36">Bộ phận tương tác</th>
+                          <th className="py-2.5 px-3 border border-slate-200 text-[10px] font-black uppercase text-center leading-normal align-middle w-32">Trạng thái</th>
                         </tr>
                       )}
                    </thead>
@@ -350,15 +367,15 @@ const ExportModal: React.FC<ExportModalProps> = ({ tasks, subordinateTasks, temp
                             : '';
                           return (
                             <tr key={t.id}>
-                               <td className={`p-4 border ${cpColor.badge} align-middle text-center`}>
-                                  <span className="text-[10px] font-black uppercase tracking-widest text-white">
+                               <td className={`py-2.5 px-3 border border-slate-200 ${cpColor.badge} align-middle text-center w-28`}>
+                                  <span className="text-[10px] font-black uppercase tracking-widest text-white leading-normal block">
                                     {t.company}
                                   </span>
                                </td>
-                               <td className={`p-4 border text-[11px] text-slate-700 font-bold ${cpColor.rowBg}`}>{t.content}</td>
-                               <td className={`p-4 border text-[11px] text-center text-slate-500 font-bold ${cpColor.rowBg}`}>{formatDayMonth(t.createdAt)}</td>
-                               <td className={`p-4 border text-[11px] text-center text-slate-600 font-medium ${cpColor.rowBg}`}>{t.department || '-'}</td>
-                               <td className={`p-4 border text-center align-middle ${cpColor.rowBg}`}>
+                               <td className={`py-2.5 px-3 border border-slate-200 text-[11px] text-slate-700 font-bold leading-normal align-middle ${cpColor.rowBg}`}>{t.content}</td>
+                               <td className={`py-2.5 px-3 border border-slate-200 text-[11px] text-center text-slate-500 font-bold leading-normal align-middle ${cpColor.rowBg}`}>{formatDayMonth(t.createdAt)}</td>
+                               <td className={`py-2.5 px-3 border border-slate-200 text-[11px] text-center text-slate-600 font-medium leading-normal align-middle ${cpColor.rowBg}`}>{t.department || '-'}</td>
+                               <td className={`py-2.5 px-3 border border-slate-200 text-center align-middle ${cpColor.rowBg}`}>
                                   <div className="flex items-center justify-center">
                                     <div className={`inline-block px-3 py-1 rounded-xl text-center border ${statusStyle} min-w-[76px]`}>
                                       <div className="text-[10px] font-black uppercase tracking-wider leading-tight">
@@ -372,7 +389,7 @@ const ExportModal: React.FC<ExportModalProps> = ({ tasks, subordinateTasks, temp
                                     </div>
                                   </div>
                                </td>
-                               <td className={`p-4 border text-[11px] text-slate-500 font-medium whitespace-pre-wrap ${cpColor.rowBg}`}>{t.notes || ''}</td>
+                               <td className={`py-2.5 px-3 border border-slate-200 text-[11px] text-slate-500 font-medium leading-normal align-middle whitespace-pre-wrap ${cpColor.rowBg}`}>{t.notes || ''}</td>
                             </tr>
                           );
                         })
@@ -381,78 +398,70 @@ const ExportModal: React.FC<ExportModalProps> = ({ tasks, subordinateTasks, temp
                         (Object.entries(groupedTasks || {}) as [string, Task[]][]).map(([company, tks]) => {
                           const cpColor = getCompanyColor(company);
                           return (
-                            <tr key={company}>
-                               <td className={`p-4 border align-middle ${cpColor.badge} text-center w-28`}>
-                                  <span className="text-[10px] font-black uppercase tracking-widest text-white">
-                                    {company}
-                                  </span>
-                               </td>
-                               <td colSpan={4} className={`p-0 border align-top ${cpColor.rowBg}`}>
-                                  <table className="w-full border-collapse" style={{ tableLayout: 'fixed' }}>
-                                     <colgroup>
-                                        <col />
-                                        <col className="w-20" />
-                                        <col className="w-36" />
-                                        <col className="w-32" />
-                                     </colgroup>
-                                     <tbody>
-                                        {tks.map((tk, idx) => {
-                                          const isDone = tk.status === TaskStatus.DONE;
-                                          const isWaiting = tk.status === TaskStatus.WAITING_APPROVAL;
-                                          const isNotStarted = tk.status === TaskStatus.NOT_STARTED;
-                                          const statusLabel = isDone ? 'Đã xong' 
-                                            : isWaiting ? 'Đợi chốt' 
-                                            : isNotStarted ? 'CHƯA LÀM' 
-                                            : 'Đang làm';
-                                          const statusStyle = isDone 
-                                            ? 'bg-emerald-100 text-emerald-700 border-emerald-200' 
-                                            : isWaiting 
-                                            ? 'bg-amber-100 text-amber-700 border-amber-200' 
-                                            : isNotStarted
-                                            ? 'bg-slate-100 text-slate-700 border-slate-200'
-                                            : 'bg-blue-100 text-blue-700 border-blue-200';
-                                          const statusDate = isDone 
-                                            ? formatDayMonth(tk.completedAt || tk.updatedAt) 
-                                            : isWaiting 
-                                            ? formatDayMonth(tk.waitingApprovalAt || tk.updatedAt) 
-                                            : '';
+                            <React.Fragment key={company}>
+                              {tks.map((tk, idx) => {
+                                const isDone = tk.status === TaskStatus.DONE;
+                                const isWaiting = tk.status === TaskStatus.WAITING_APPROVAL;
+                                const isNotStarted = tk.status === TaskStatus.NOT_STARTED;
+                                const statusLabel = isDone ? 'Đã xong' 
+                                  : isWaiting ? 'Đợi chốt' 
+                                  : isNotStarted ? 'CHƯA LÀM' 
+                                  : 'Đang làm';
+                                const statusStyle = isDone 
+                                  ? 'bg-emerald-100 text-emerald-700 border-emerald-200' 
+                                  : isWaiting 
+                                  ? 'bg-amber-100 text-amber-700 border-amber-200' 
+                                  : isNotStarted
+                                  ? 'bg-slate-100 text-slate-700 border-slate-200'
+                                  : 'bg-blue-100 text-blue-700 border-blue-200';
+                                const statusDate = isDone 
+                                  ? formatDayMonth(tk.completedAt || tk.updatedAt) 
+                                  : isWaiting 
+                                  ? formatDayMonth(tk.waitingApprovalAt || tk.updatedAt) 
+                                  : '';
 
-                                          return (
-                                            <tr key={tk.id} className={idx < tks.length - 1 ? "border-b border-slate-200" : ""}>
-                                               <td className="p-3 text-[11px] text-slate-700 font-bold align-middle border-r border-slate-200 break-words">
-                                                  {idx + 1}. {tk.content}
-                                               </td>
-                                               <td className="p-3 text-[11px] text-center text-slate-500 font-bold w-20 align-middle border-r border-slate-200 whitespace-nowrap">
-                                                  {formatDayMonth(tk.createdAt)}
-                                               </td>
-                                               <td className="p-3 text-[11px] text-center text-slate-600 font-medium w-36 align-middle border-r border-slate-200">
-                                                  {tk.department || '-'}
-                                               </td>
-                                               <td className="p-3 text-center align-middle w-32 whitespace-nowrap">
-                                                  <div className="flex items-center justify-center">
-                                                    <div className={`inline-block px-3 py-1 rounded-xl text-center border ${statusStyle} min-w-[76px]`}>
-                                                      <div className="text-[9.5px] font-black uppercase tracking-wider leading-tight">
-                                                        {statusLabel}
-                                                      </div>
-                                                      {statusDate && (
-                                                        <div className="text-[8.5px] font-bold leading-tight mt-0.5 opacity-85">
-                                                          {statusDate}
-                                                        </div>
-                                                      )}
-                                                    </div>
-                                                  </div>
-                                               </td>
-                                            </tr>
-                                          );
-                                        })}
-                                     </tbody>
-                                  </table>
-                                </td>
-                                
-                             </tr>
-                           );
-                         })
-                       )}
+                                return (
+                                  <tr key={tk.id}>
+                                    {idx === 0 && (
+                                      <td 
+                                        rowSpan={tks.length} 
+                                        className={`py-2.5 px-3 border border-slate-200 align-middle ${cpColor.badge} text-center w-28`}
+                                      >
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-white leading-normal block">
+                                          {company}
+                                        </span>
+                                      </td>
+                                    )}
+                                    <td className={`py-2.5 px-3 text-[11px] text-slate-700 font-bold leading-normal align-middle border border-slate-200 break-words ${cpColor.rowBg}`}>
+                                      {idx + 1}. {tk.content}
+                                    </td>
+                                    <td className={`py-2.5 px-3 text-[11px] text-center text-slate-500 font-bold leading-normal w-20 align-middle border border-slate-200 whitespace-nowrap ${cpColor.rowBg}`}>
+                                      {formatDayMonth(tk.createdAt)}
+                                    </td>
+                                    <td className={`py-2.5 px-3 text-[11px] text-center text-slate-600 font-medium leading-normal w-36 align-middle border border-slate-200 ${cpColor.rowBg}`}>
+                                      {tk.department || '-'}
+                                    </td>
+                                    <td className={`py-2.5 px-3 text-center align-middle w-32 whitespace-nowrap border border-slate-200 ${cpColor.rowBg}`}>
+                                      <div className="flex items-center justify-center">
+                                        <div className={`inline-block px-3 py-1 rounded-xl text-center border ${statusStyle} min-w-[76px]`}>
+                                          <div className="text-[9.5px] font-black uppercase tracking-wider leading-tight">
+                                            {statusLabel}
+                                          </div>
+                                          {statusDate && (
+                                            <div className="text-[8.5px] font-bold leading-tight mt-0.5 opacity-85">
+                                              {statusDate}
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </React.Fragment>
+                          );
+                        })
+                      )}
                     </tbody>
                 </table>
              </div>
