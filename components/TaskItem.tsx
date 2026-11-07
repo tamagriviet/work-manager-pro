@@ -3,6 +3,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Task, TaskStatus, Language } from '../types';
 import { STATUS_LABELS, getCompanyColor } from '../constants';
 import { translations } from '../translations';
+import { playDoneSound, playInProgressSound, playWaitingApprovalSound } from '../services/soundService';
 
 interface TaskItemProps {
   task: Task;
@@ -273,7 +274,16 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, language = 'vi', onStatusChan
               <button
                 key={status}
                 type="button"
-                onClick={() => onStatusChange?.(task.id, status)}
+                onClick={() => {
+                  if (status === TaskStatus.IN_PROGRESS) {
+                    playInProgressSound();
+                  } else if (status === TaskStatus.WAITING_APPROVAL) {
+                    playWaitingApprovalSound();
+                  } else if (status === TaskStatus.DONE) {
+                    playDoneSound();
+                  }
+                  onStatusChange?.(task.id, status);
+                }}
                 title={t[status]}
                 className={`px-1 py-1.5 sm:py-2 rounded-full text-[8px] sm:text-[9px] md:text-[9.5px] font-black uppercase tracking-tight transition-all flex items-center justify-center text-center min-w-0 ${
                   task.status === status

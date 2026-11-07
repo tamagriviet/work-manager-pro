@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { Language, User, Department } from '../types';
 import { translations } from '../translations';
 import { getCompanyColor } from '../constants';
+import { playAddTaskSound } from '../services/soundService';
 import packageJson from '../package.json';
 
 interface SidebarProps {
@@ -41,6 +42,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   const handleSubmitTask = (e: React.FormEvent) => {
     e.preventDefault();
     if (!content.trim() || !selectedCompany) return;
+    playAddTaskSound();
     onAddTask(
       content.trim(), 
       selectedCompany, 

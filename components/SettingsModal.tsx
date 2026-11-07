@@ -2,22 +2,25 @@
 import React, { useState, useEffect } from 'react';
 import { Language, Theme, User } from '../types';
 import { translations } from '../translations';
+import { playNotificationSound, isSoundEnabled } from '../services/soundService';
 
 interface SettingsModalProps {
   language: Language;
   theme: Theme;
   appLogo?: string;
+  soundEnabled?: boolean;
   currentUser: User;
-  onUpdate: (lang: Language, theme: Theme, logo?: string) => void;
+  onUpdate: (lang: Language, theme: Theme, logo?: string, soundEnabled?: boolean) => void;
   onUpdatePassword: (newPass: string) => void;
   onClose: () => void;
 }
 
-const SettingsModal: React.FC<SettingsModalProps> = ({ language, theme: initialTheme, appLogo, currentUser, onUpdate, onUpdatePassword, onClose }) => {
+const SettingsModal: React.FC<SettingsModalProps> = ({ language, theme: initialTheme, appLogo, soundEnabled, currentUser, onUpdate, onUpdatePassword, onClose }) => {
   const [activeTab, setActiveTab] = useState<'GENERAL' | 'SECURITY' | 'INTERFACE'>('GENERAL');
   const [tempLanguage, setTempLanguage] = useState<Language>(language);
   const [tempTheme, setTempTheme] = useState<Theme>(initialTheme);
   const [tempAppLogo, setTempAppLogo] = useState<string | undefined>(appLogo);
+  const [tempSoundEnabled, setTempSoundEnabled] = useState<boolean>(soundEnabled !== undefined ? soundEnabled : isSoundEnabled());
   
   // Password state
   const [oldPassword, setOldPassword] = useState('');
@@ -39,7 +42,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ language, theme: initialT
 
   const handleSave = () => {
     if (activeTab === 'GENERAL' || activeTab === 'INTERFACE') {
-      onUpdate(tempLanguage, tempTheme, tempAppLogo);
+      onUpdate(tempLanguage, tempTheme, tempAppLogo, tempSoundEnabled);
       onClose();
     } else {
       // Logic đổi mật khẩu
@@ -181,6 +184,49 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ language, theme: initialT
                       <i className="fas fa-moon text-lg"></i>
                     </div>
                     {t.dark}
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-4 pt-2">
+                <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">{t.sound}</label>
+                <div className="p-4 rounded-2xl border-2 border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40 flex items-center justify-between">
+                  <div className="flex items-center gap-3.5">
+                    <div className={`w-11 h-11 rounded-2xl flex items-center justify-center transition-colors ${
+                      tempSoundEnabled 
+                        ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400' 
+                        : 'bg-slate-200 dark:bg-slate-700 text-slate-400'
+                    }`}>
+                      <i className={`fas ${tempSoundEnabled ? 'fa-volume-high' : 'fa-volume-xmark'} text-lg`}></i>
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-black text-slate-800 dark:text-white uppercase tracking-wider">
+                        {tempSoundEnabled ? t.soundEnabled : t.soundDisabled}
+                      </h4>
+                      <p className="text-[10px] text-slate-400 font-medium">
+                        {tempSoundEnabled ? 'Phát âm thanh khi ấn nút & có thông báo' : 'Tắt toàn bộ âm thanh ứng dụng'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = !tempSoundEnabled;
+                      setTempSoundEnabled(next);
+                      if (next) {
+                        playNotificationSound();
+                      }
+                    }}
+                    className={`relative inline-flex h-8 w-14 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                      tempSoundEnabled ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-700'
+                    }`}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-7 w-7 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
+                        tempSoundEnabled ? 'translate-x-6' : 'translate-x-0'
+                      }`}
+                    />
                   </button>
                 </div>
               </div>

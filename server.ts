@@ -23,7 +23,7 @@ const initialData = {
   users: [DEFAULT_AUTH],
   tasks: [],
   templates: [],
-  settings: { language: 'vi', theme: 'light' }
+  settings: { language: 'vi', theme: 'light', soundEnabled: true }
 };
 
 let dbCache: any = null;

@@ -72,6 +72,7 @@ export interface AppState {
     language: Language;
     theme: Theme;
     appLogo?: string; // Logo tùy chỉnh dạng base64
+    soundEnabled?: boolean; // Bật tắt âm thanh thông báo
   };
 }
 

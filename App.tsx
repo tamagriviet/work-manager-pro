@@ -16,6 +16,7 @@ import { loadStateSecure } from './services/storageService';
 import { translations } from './translations';
 import { initSocket, broadcastState, getSocket, dispatchAction } from './services/socketService';
 import { showNotification } from './services/notificationService';
+import { isSoundEnabled, setSoundEnabled } from './services/soundService';
 
 const App: React.FC = () => {
   const [state, setState] = useState<AppState | null>(null);
@@ -51,6 +52,12 @@ const App: React.FC = () => {
       window.electronAPI.setTheme(currentTheme === 'dark');
     }
   }, [currentTheme]);
+
+  useEffect(() => {
+    if (state?.settings?.soundEnabled !== undefined) {
+      setSoundEnabled(state.settings.soundEnabled);
+    }
+  }, [state?.settings?.soundEnabled]);
 
   useEffect(() => {
     // Tạm thời tắt thông báo cập nhật trong ứng dụng theo yêu cầu (vẫn giữ lại icon thông báo, mở lại sau khi cần)
@@ -855,8 +862,14 @@ const App: React.FC = () => {
           language={currentLanguage} 
           theme={currentTheme} 
           appLogo={state.settings.appLogo}
+          soundEnabled={state.settings.soundEnabled !== undefined ? state.settings.soundEnabled : isSoundEnabled()}
           currentUser={state.currentUser}
-          onUpdate={(l, theme, appLogo) => { setState(p => p ? ({...p, settings: {language: l, theme, appLogo}}) : null); dispatchAction({ type: 'UPDATE_SETTINGS', payload: {language: l, theme, appLogo} }); }} 
+          onUpdate={(l, theme, appLogo, soundEnabled) => { 
+            const newSoundEnabled = soundEnabled !== undefined ? soundEnabled : true;
+            setSoundEnabled(newSoundEnabled);
+            setState(p => p ? ({...p, settings: {language: l, theme, appLogo, soundEnabled: newSoundEnabled}}) : null); 
+            dispatchAction({ type: 'UPDATE_SETTINGS', payload: {language: l, theme, appLogo, soundEnabled: newSoundEnabled} }); 
+          }} 
           onUpdatePassword={handleUpdatePassword}
           onClose={() => setModals(m => ({...m, settings: false}))} 
         />

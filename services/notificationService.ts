@@ -1,5 +1,6 @@
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { Capacitor } from '@capacitor/core';
+import { playNotificationSound } from './soundService';
 
 export const requestNotificationPermission = async () => {
   if (Capacitor.isNativePlatform()) {
@@ -18,6 +19,7 @@ export const requestNotificationPermission = async () => {
 
 export const showNotification = async (title: string, body: string, id: number) => {
   try {
+    playNotificationSound();
     const hasPermission = await requestNotificationPermission();
     if (!hasPermission) return;
 
@@ -33,8 +35,8 @@ export const showNotification = async (title: string, body: string, id: number) 
         ]
       });
     } else {
-      // For Electron/Web: OS handles the default sound
-      new Notification(title, { body });
+      // For Electron/Web: OS handles the notification, with silent: true so custom sound is played
+      new Notification(title, { body, silent: true });
     }
   } catch (error) {
     console.error('Error showing notification:', error);

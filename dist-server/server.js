@@ -21,7 +21,7 @@ var initialData = {
   users: [DEFAULT_AUTH],
   tasks: [],
   templates: [],
-  settings: { language: "vi", theme: "light" }
+  settings: { language: "vi", theme: "light", soundEnabled: true }
 };
 var dbCache = null;
 var mongoCollection = null;
