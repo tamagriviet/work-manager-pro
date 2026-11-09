@@ -134,6 +134,9 @@ const App: React.FC = () => {
     setLoading(true);
     try {
       const loaded = await loadStateSecure(email, pass);
+      if (loaded?.settings?.appLogo) {
+        localStorage.setItem('cached_app_logo', loaded.settings.appLogo);
+      }
       setState(loaded);
     } catch (e: any) { 
       alert(e.message); 
@@ -162,6 +165,9 @@ const App: React.FC = () => {
 
     socket.on('state-updated', (updatedDb: any) => {
       isRemoteUpdateRef.current = true;
+      if (updatedDb?.settings?.appLogo) {
+        localStorage.setItem('cached_app_logo', updatedDb.settings.appLogo);
+      }
       setState(p => {
         if (!p) return p;
         return {
@@ -867,6 +873,11 @@ const App: React.FC = () => {
           onUpdate={(l, theme, appLogo, soundEnabled) => { 
             const newSoundEnabled = soundEnabled !== undefined ? soundEnabled : true;
             setSoundEnabled(newSoundEnabled);
+            if (appLogo) {
+              localStorage.setItem('cached_app_logo', appLogo);
+            } else {
+              localStorage.removeItem('cached_app_logo');
+            }
             setState(p => p ? ({...p, settings: {language: l, theme, appLogo, soundEnabled: newSoundEnabled}}) : null); 
             dispatchAction({ type: 'UPDATE_SETTINGS', payload: {language: l, theme, appLogo, soundEnabled: newSoundEnabled} }); 
           }} 

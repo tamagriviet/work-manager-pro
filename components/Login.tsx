@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { authenticateUser } from '../services/storageService';
 import packageJson from '../package.json';
 import { getServerUrl, setServerUrl } from '../services/configService';
+import { DEFAULT_APP_LOGO } from '../defaultLogo';
 
 interface LoginProps {
   onLogin: (email: string, pass: string) => void;
@@ -14,7 +15,9 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [autostart, setAutostart] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [appLogo, setAppLogo] = useState<string | null>(null);
+  const [appLogo, setAppLogo] = useState<string>(() => {
+    return localStorage.getItem('cached_app_logo') || DEFAULT_APP_LOGO;
+  });
   
   useEffect(() => {
     // Clear legacy auto-login state to prevent unwanted automatic login after fresh install or update
@@ -48,6 +51,10 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
       .then(data => {
         if (data && data.appLogo) {
           setAppLogo(data.appLogo);
+          localStorage.setItem('cached_app_logo', data.appLogo);
+        } else {
+          setAppLogo(DEFAULT_APP_LOGO);
+          localStorage.setItem('cached_app_logo', DEFAULT_APP_LOGO);
         }
       })
       .catch(err => console.error("Could not load settings:", err));
@@ -144,15 +151,19 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
         )}
         
         <div className="text-center mb-6 md:mb-10 mt-2 md:mt-0">
-          {appLogo ? (
-            <div className="w-16 h-16 md:w-20 md:h-20 mx-auto mb-4 md:mb-6 flex items-center justify-center bg-white rounded-[1.5rem] md:rounded-[2rem] shadow-xl overflow-hidden p-1 border border-slate-100">
-              <img src={appLogo} alt="App Logo" className="w-full h-full object-contain rounded-[1.2rem] md:rounded-[1.7rem]" />
-            </div>
-          ) : (
-            <div className="w-16 h-16 md:w-20 md:h-20 bg-blue-600 rounded-[1.5rem] md:rounded-[2rem] flex items-center justify-center text-white text-3xl md:text-4xl mx-auto mb-4 md:mb-6 shadow-xl shadow-blue-500/20">
-              <i className="fas fa-shield-halved"></i>
-            </div>
-          )}
+          <div className="w-16 h-16 md:w-20 md:h-20 mx-auto mb-4 md:mb-6 flex items-center justify-center bg-white rounded-[1.5rem] md:rounded-[2rem] shadow-xl overflow-hidden p-1 border border-slate-100">
+            <img 
+              src={appLogo || DEFAULT_APP_LOGO} 
+              alt="App Logo" 
+              className="w-full h-full object-contain rounded-[1.2rem] md:rounded-[1.7rem]" 
+              onError={(e) => {
+                const target = e.target as HTMLImageElement;
+                if (target.src !== DEFAULT_APP_LOGO) {
+                  target.src = DEFAULT_APP_LOGO;
+                }
+              }}
+            />
+          </div>
           <h1 className="text-2xl md:text-3xl font-black text-slate-800 tracking-tighter uppercase">Work Manager Pro</h1>
           <p className="text-slate-400 font-bold text-[9px] md:text-[10px] mt-1 md:mt-2 uppercase tracking-[0.2em]">Hệ thống quản trị nội bộ</p>
         </div>

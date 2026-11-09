@@ -24,7 +24,8 @@
   "templates": [],
   "settings": {
     "language": "vi",
-    "theme": "light"
+    "theme": "light",
+    "appLogo": "/icon.png"
   },
   "departments": [
     {

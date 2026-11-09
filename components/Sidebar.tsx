@@ -5,6 +5,7 @@ import { translations } from '../translations';
 import { getCompanyColor } from '../constants';
 import { playAddTaskSound } from '../services/soundService';
 import packageJson from '../package.json';
+import { DEFAULT_APP_LOGO } from '../defaultLogo';
 
 interface SidebarProps {
   currentUser: User;
@@ -63,15 +64,19 @@ const Sidebar: React.FC<SidebarProps> = ({
 
         <div className="mb-10 flex items-center justify-between">
           <div className="flex items-center gap-3 md:gap-4">
-            {appLogo ? (
-              <div className="w-10 h-10 md:w-12 md:h-12 flex items-center justify-center bg-white rounded-xl md:rounded-[1.2rem] shadow-xl overflow-hidden p-0.5 border border-slate-100">
-                <img src={appLogo} alt="App Logo" className="w-full h-full object-contain rounded-lg md:rounded-xl" />
-              </div>
-            ) : (
-              <div className="w-10 h-10 md:w-12 md:h-12 bg-blue-600 rounded-xl md:rounded-[1.2rem] flex items-center justify-center text-white shadow-xl shadow-blue-500/20">
-                <i className="fas fa-shield-halved text-lg md:text-xl"></i>
-              </div>
-            )}
+            <div className="w-10 h-10 md:w-12 md:h-12 flex items-center justify-center bg-white rounded-xl md:rounded-[1.2rem] shadow-xl overflow-hidden p-0.5 border border-slate-100">
+              <img 
+                src={appLogo || localStorage.getItem('cached_app_logo') || DEFAULT_APP_LOGO} 
+                alt="App Logo" 
+                className="w-full h-full object-contain rounded-lg md:rounded-xl" 
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  if (target.src !== DEFAULT_APP_LOGO) {
+                    target.src = DEFAULT_APP_LOGO;
+                  }
+                }}
+              />
+            </div>
             <div>
               <h1 className="text-lg md:text-xl font-black text-slate-800 dark:text-white tracking-tighter leading-tight uppercase pr-8 md:pr-0">{t.appName}</h1>
               <p className="text-[9px] md:text-[10px] font-black text-blue-500 uppercase tracking-widest">{isRootAdmin ? t.systemAdmin : 'Enterprise Edition'}</p>

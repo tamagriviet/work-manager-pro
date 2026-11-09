@@ -21,7 +21,7 @@ var initialData = {
   users: [DEFAULT_AUTH],
   tasks: [],
   templates: [],
-  settings: { language: "vi", theme: "light", soundEnabled: true }
+  settings: { language: "vi", theme: "light", soundEnabled: true, appLogo: "/icon.png" }
 };
 var dbCache = null;
 var mongoCollection = null;
@@ -80,7 +80,11 @@ async function startServer() {
   app.use(express.json());
   app.get("/api/settings", async (req, res) => {
     const db = await getDb();
-    res.json(db.settings || { language: "vi", theme: "light" });
+    const settings = db.settings || { language: "vi", theme: "light" };
+    res.json({
+      ...settings,
+      appLogo: settings.appLogo || "/icon.png"
+    });
   });
   app.post("/api/login", async (req, res) => {
     const { email, password } = req.body;

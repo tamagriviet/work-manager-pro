@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Language, Theme, User } from '../types';
 import { translations } from '../translations';
 import { playNotificationSound, isSoundEnabled } from '../services/soundService';
+import { DEFAULT_APP_LOGO } from '../defaultLogo';
 
 interface SettingsModalProps {
   language: Language;
@@ -237,14 +238,18 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ language, theme: initialT
                 <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Logo Phần Mềm (In-App Logo)</label>
                 <div className="flex flex-col gap-4">
                   <div className="flex items-center gap-4">
-                    <div className="w-16 h-16 rounded-2xl bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 flex items-center justify-center overflow-hidden shrink-0">
-                      {tempAppLogo ? (
-                        <img src={tempAppLogo} alt="Logo" className="w-full h-full object-contain" />
-                      ) : (
-                        <div className="w-full h-full bg-blue-600 text-white flex items-center justify-center text-2xl">
-                          <i className="fas fa-shield-halved"></i>
-                        </div>
-                      )}
+                    <div className="w-16 h-16 rounded-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 flex items-center justify-center overflow-hidden shrink-0 shadow-sm p-1">
+                      <img 
+                        src={tempAppLogo || DEFAULT_APP_LOGO} 
+                        alt="Logo" 
+                        className="w-full h-full object-contain rounded-xl" 
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          if (target.src !== DEFAULT_APP_LOGO) {
+                            target.src = DEFAULT_APP_LOGO;
+                          }
+                        }}
+                      />
                     </div>
                     <div>
                       <label className="cursor-pointer bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 text-blue-600 dark:text-blue-400 px-4 py-2 rounded-xl text-xs font-bold transition-colors inline-block border border-blue-200 dark:border-blue-800">
